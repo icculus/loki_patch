@@ -1,0 +1,574 @@
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <limits.h>
+#include <dirent.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include "loki_patch.h"
+#include "tree_patch.h"
+#include "loki_xdelta.h"
+#include "mkdirhier.h"
+#include "md5.h"
+#include "log_output.h"
+
+
+/* See if a path is already in the patch list for the specified operation
+*/
+static int is_in_patch(patch_op op, const char *dst, loki_patch *patch)
+{
+    int in_patch;
+
+    in_patch = 0;
+    switch (op) {
+        case OP_NONE: {
+            in_patch += is_in_patch(OP_ADD_PATH, dst, patch);
+            in_patch += is_in_patch(OP_ADD_FILE, dst, patch);
+            in_patch += is_in_patch(OP_DEL_PATH, dst, patch);
+            in_patch += is_in_patch(OP_DEL_FILE, dst, patch);
+            in_patch += is_in_patch(OP_PATCH_FILE, dst, patch);
+        }
+        break;
+
+        case OP_ADD_PATH: {
+            struct op_add_path *elem;
+
+            for (elem=patch->add_path_list; elem && !in_patch; elem=elem->next){
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    ++in_patch;
+                }
+            }
+        }
+        break;
+        
+        case OP_ADD_FILE: {
+            struct op_add_file *elem;
+
+            for (elem=patch->add_file_list; elem && !in_patch; elem=elem->next){
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    ++in_patch;
+                }
+            }
+        }
+        break;
+
+        case OP_DEL_PATH: {
+            struct op_del_path *elem;
+
+            for (elem=patch->del_path_list; elem && !in_patch; elem=elem->next){
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    ++in_patch;
+                }
+            }
+        }
+        break;
+        
+        case OP_DEL_FILE: {
+            struct op_del_file *elem;
+
+            for (elem=patch->del_file_list; elem && !in_patch; elem=elem->next){
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    ++in_patch;
+                }
+            }
+        }
+        break;
+        
+        case OP_PATCH_FILE: {
+            struct op_patch_file *elem;
+
+            for (elem=patch->patch_file_list; elem&&!in_patch; elem=elem->next){
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    ++in_patch;
+                }
+            }
+        }
+        break;
+    }
+    return in_patch;
+}
+
+int tree_add_file(const char *path, const char *dst, loki_patch *patch)
+{
+    struct op_add_file *op;
+    char pat_path[PATH_MAX];
+    struct stat sb;
+    FILE *src_fp, *pat_fp;
+    int len;
+    char data[4096];
+
+    log(LOG_VERBOSE, "-> ADD FILE %s\n", dst);
+
+    if ( is_in_patch(OP_NONE, dst, patch) ) {
+        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        return(-1);
+    }
+
+    /* Allocate memory for the operation */
+    op = (struct op_add_file *)malloc(sizeof *op);
+    if ( ! op ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+
+    /* Get the mode information for the file */
+    if ( stat(path, &sb) < 0 ) {
+        log(LOG_ERROR, "Unable to stat %s\n", path);
+        free(op);
+        return(-1);
+    }
+
+    /* Copy the file to the patch directory */
+    sprintf(pat_path, "%s/%s", patch->base, dst);
+    if ( mkdirhier(pat_path) < 0 ) {
+        free(op);
+        return(-1);
+    }
+    src_fp = fopen(path, "rb");
+    pat_fp = fopen(pat_path, "wb");
+    while ( (len=fread(data, 1, sizeof(data), src_fp)) > 0 ) {
+        if ( fwrite(data, 1, len, pat_fp) != len ) {
+            log(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
+            fclose(src_fp);
+            fclose(pat_fp);
+            free(op);
+            return(-1);
+        }
+    }
+    fclose(src_fp);
+    fclose(pat_fp);
+
+    /* Put it all together now */
+    op->dst = strdup(dst);
+    op->src = strdup(dst);
+    op->mode = sb.st_mode;
+    op->size = sb.st_size;
+    md5_compute(path, op->sum, 1);
+    op->next = patch->add_file_list;
+    patch->add_file_list = op;
+
+    return(0);
+}
+
+int tree_add_path(const char *path, const char *dst, loki_patch *patch)
+{
+    struct op_add_path *op;
+    char child_path[PATH_MAX];
+    char child_dst[PATH_MAX];
+    struct stat sb;
+    DIR *dir;
+    struct dirent *entry;
+
+    log(LOG_VERBOSE, "-> ADD PATH %s\n", dst);
+
+    if ( is_in_patch(OP_NONE, dst, patch) ) {
+        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        return(-1);
+    }
+
+    /* Allocate memory for the operation */
+    op = (struct op_add_path *)malloc(sizeof *op);
+    if ( ! op ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+
+    /* Get the mode information for the path */
+    if ( stat(path, &sb) < 0 ) {
+        log(LOG_ERROR, "Unable to stat %s\n", path);
+        free(op);
+        return(-1);
+    }
+
+    /* Put it all together now */
+    op->dst = strdup(dst);
+    op->mode = sb.st_mode;
+    if ( patch->add_path_list ) {
+        struct op_add_path *here;
+        /* Insert the directory at the end of the list, so that
+           directories are created in the correct order.
+         */
+        for ( here=patch->add_path_list; here->next; here=here->next )
+            ;
+        op->next = here->next;
+        here->next = op;
+    } else {
+        patch->add_path_list = op;
+    }
+    op->next = (struct op_add_path *)0;
+
+    /* Now add everything in the path */
+    dir = opendir(path);
+    if ( ! dir ) {
+        log(LOG_ERROR, "Unable to list %s\n", path);
+        return(-1);
+    }
+    while ( (entry=readdir(dir)) != NULL ) {
+        /* Skip "." and ".." entries */
+        if ( (strcmp(entry->d_name, ".") == 0) ||
+             (strcmp(entry->d_name, "..") == 0) ) {
+            continue;
+        }
+
+        /* Add the child path */
+        sprintf(child_path, "%s/%s", path, entry->d_name);
+        sprintf(child_dst, "%s/%s", dst, entry->d_name);
+        if ( stat(child_path, &sb) < 0 ) {
+            log(LOG_ERROR, "Unable to stat %s\n", child_path);
+            return(-1);
+        }
+        if ( S_ISDIR(sb.st_mode) ) {
+            if ( tree_add_path(child_path, child_dst, patch) < 0 ) {
+                return(-1);
+            }
+        } else {
+            if ( tree_add_file(child_path, child_dst, patch) < 0 ) {
+                return(-1);
+            }
+        }
+    }
+    closedir(dir);
+
+    /* We're finally done */
+    return(0);
+}
+
+int tree_patch_file(const char *o_path,
+                    const char *n_path, const char *dst, loki_patch *patch)
+{
+    struct op_patch_file *op;
+    struct delta_option *option;
+    char oldsum[CHECKSUM_SIZE+1];
+    char newsum[CHECKSUM_SIZE+1];
+    struct stat sb;
+    int i;
+    char pat_path[PATH_MAX];
+
+    /* Make sure the files to compare exist */
+    if ( access(o_path, R_OK) < 0 ) {
+        log(LOG_ERROR, "Unable to read %s\n", o_path);
+        return(-1);
+    }
+    if ( access(n_path, R_OK) < 0 ) {
+        log(LOG_ERROR, "Unable to read %s\n", n_path);
+        return(-1);
+    }
+
+    /* See if we need to generate a delta */
+    md5_compute(o_path, oldsum, 1);
+    md5_compute(n_path, newsum, 1);
+    if ( strcmp(oldsum, newsum) == 0 ) {
+        /* They are the same file */
+        return(0);
+    }
+
+    log(LOG_VERBOSE, "-> PATCH FILE %s\n", dst);
+
+    /* We can have multiple "PATCH FILE" entries, but no other kind */
+    if ( is_in_patch(OP_ADD_PATH, dst, patch) ||
+         is_in_patch(OP_ADD_FILE, dst, patch) ||
+         is_in_patch(OP_DEL_PATH, dst, patch) ||
+         is_in_patch(OP_DEL_FILE, dst, patch) ) {
+        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        return(-1);
+    }
+
+    /* Allocate memory for the operation, if needed */
+    for ( op = patch->patch_file_list; op; op=op->next ) {
+        if ( strcmp(op->dst, dst) == 0 ) {
+            break;
+        }
+    }
+    if ( ! op ) {
+        op = (struct op_patch_file *)malloc(sizeof *op);
+        if ( ! op ) {
+            log(LOG_ERROR, "Out of memory\n");
+            return(-1);
+        }
+        op->dst = strdup(dst);
+        op->options = (struct delta_option *)0;
+        op->mode = 0;
+        op->size = 0;
+        op->next = patch->patch_file_list;
+        patch->patch_file_list = op;
+    }
+
+    /* The patch size is the size of the largest output file */
+    if ( stat(n_path, &sb) < 0 ) {
+        log(LOG_ERROR, "Unable to stat %s\n", n_path);
+        return(-1);
+    }
+    if ( op->size < sb.st_size ) {
+        op->size = sb.st_size;
+    }
+    op->mode = sb.st_mode;
+
+    /* Allocate memory for the option */
+    option = (struct delta_option *)malloc(sizeof *option);
+    if ( ! option ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+    if ( op->options ) {
+        struct delta_option *here;
+
+        for ( here=op->options; here->next; here=here->next )
+            ;
+        here->next = option;
+    } else {
+        op->options = option;
+    }
+    option->src = (char *)0;
+    strcpy(option->oldsum, oldsum);
+    strcpy(option->newsum, newsum);
+    option->next = (struct delta_option *)0;
+
+    /* Generate a delta between the two versions */
+    i = 0;
+    sprintf(pat_path, "%s/%s.%d", patch->base, dst, i);
+    if ( mkdirhier(pat_path) < 0 ) {
+        return(-1);
+    }
+    while ( stat(pat_path, &sb) == 0 ) {
+        sprintf(pat_path, "%s/%s.%d", patch->base, dst, ++i);
+    }
+    if ( loki_xdelta(o_path, n_path, pat_path) < 0 ) {
+        log(LOG_ERROR, "Failed delta between %s and %s\n", o_path, n_path);
+        return(-1);
+    }
+    option->src = strdup(pat_path+strlen(patch->base)+1);
+
+    /* We're done, successful delta */
+    return(0);
+}
+
+int tree_del_path(const char *dst, loki_patch *patch)
+{
+    struct op_del_path *op;
+    char path[PATH_MAX];
+    int pathlen;
+
+    log(LOG_VERBOSE, "-> DEL PATH %s\n", dst);
+
+    /* Need to make sure that this path isn't part of any of the path */
+    sprintf(path, "%s/", dst);
+    pathlen = strlen(path);
+    {
+        struct op_add_path *elem;
+
+        for (elem=patch->add_path_list; elem; elem=elem->next){
+            if ( (strcmp(elem->dst, dst) == 0) ||
+                 (strncmp(elem->dst, path, pathlen) == 0) ) {
+                log(LOG_ERROR,
+"Can't delete path %s, used by ADD PATH %s\n", dst, elem->dst);
+                return(-1);
+            }
+        }
+    }
+    {
+        struct op_add_file *elem;
+
+        for (elem=patch->add_file_list; elem; elem=elem->next){
+            if ( (strcmp(elem->dst, dst) == 0) ||
+                 (strncmp(elem->dst, path, pathlen) == 0) ) {
+                log(LOG_ERROR,
+"Can't delete path %s, used by ADD FILE %s\n", dst, elem->dst);
+                return(-1);
+            }
+        }
+    }
+    {
+        struct op_del_path *elem;
+
+        for (elem=patch->del_path_list; elem; elem=elem->next){
+            if ( (strcmp(elem->dst, dst) == 0) ||
+                 (strncmp(elem->dst, path, pathlen) == 0) ) {
+                log(LOG_ERROR,
+"Can't delete path %s, used by DEL PATH %s\n", dst, elem->dst);
+                return(-1);
+            }
+        }
+    }
+    {
+        struct op_del_file *elem;
+
+        for (elem=patch->del_file_list; elem; elem=elem->next){
+            if ( (strcmp(elem->dst, dst) == 0) ||
+                 (strncmp(elem->dst, path, pathlen) == 0) ) {
+                log(LOG_ERROR,
+"Can't delete path %s, used by DEL FILE %s\n", dst, elem->dst);
+                return(-1);
+            }
+        }
+    }
+    {
+        struct op_patch_file *elem;
+
+        for (elem=patch->patch_file_list; elem; elem=elem->next){
+            if ( (strcmp(elem->dst, dst) == 0) ||
+                 (strncmp(elem->dst, path, pathlen) == 0) ) {
+                log(LOG_ERROR,
+"Can't delete path %s, used by PATCH FILE %s\n", dst, elem->dst);
+                return(-1);
+            }
+        }
+    }
+
+    /* Allocate memory for the operation */
+    op = (struct op_del_path *)malloc(sizeof *op);
+    if ( ! op ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+
+    /* Put it all together now */
+    op->dst = strdup(dst);
+    op->next = patch->del_path_list;
+    patch->del_path_list = op;
+
+    return(0);
+}
+
+int tree_del_file(const char *dst, loki_patch *patch)
+{
+    struct op_del_file *op;
+
+    log(LOG_VERBOSE, "-> DEL FILE %s\n", dst);
+
+    if ( is_in_patch(OP_NONE, dst, patch) ) {
+        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        return(-1);
+    }
+
+    /* Allocate memory for the operation */
+    op = (struct op_del_file *)malloc(sizeof *op);
+    if ( ! op ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+
+    /* Put it all together now */
+    op->dst = strdup(dst);
+    op->next = patch->del_file_list;
+    patch->del_file_list = op;
+
+    return(0);
+}
+
+/* Create a recursive patch between the two trees of files */
+int tree_patch(const char *o_top, const char *o_path,
+               const char *n_top, const char *n_path, loki_patch *patch)
+{
+    DIR *old, *new;
+    struct dirent *entry;
+    char path[PATH_MAX];
+    char old_path[PATH_MAX];
+    char new_path[PATH_MAX];
+    struct stat old_sb, new_sb;
+
+    /* First get all the files that are in the old path */
+    sprintf(path, "%s/%s", o_top, o_path);
+    old = opendir(path);
+    if ( ! old ) {
+        log(LOG_ERROR, "Unable to open directory: %s\n", path);
+        return(-1);
+    }
+    while ( (entry=readdir(old)) != NULL ) {
+        /* Skip "." and ".." entries */
+        if ( (strcmp(entry->d_name, ".") == 0) ||
+             (strcmp(entry->d_name, "..") == 0) ) {
+            continue;
+        }
+
+        /* Make sure we can see the old path */
+        sprintf(old_path, "%s/%s/%s", o_top, o_path, entry->d_name);
+        if ( stat(old_path, &old_sb) < 0 ) {
+            log(LOG_ERROR, "Unable to stat path: %s\n", old_path);
+            return(-1);
+        }
+
+        /* See if the new entry doesn't exist, and we have to remove it */
+        sprintf(new_path, "%s/%s/%s", n_top, n_path, entry->d_name);
+        if ( stat(new_path, &new_sb) < 0 ) {
+            /* This is an obsolete entry */
+            if ( S_ISDIR(old_sb.st_mode) ) {
+                if ( tree_del_path(old_path+strlen(o_top)+2, patch) < 0 ) {
+                    return(-1);
+                }
+            } else {
+                if ( tree_del_file(old_path+strlen(o_top)+2, patch) < 0 ) {
+                    return(-1);
+                }
+            }
+            continue;
+        }
+
+        /* If they both exist, but are not the same type of file.. */
+        if ( S_ISDIR(old_sb.st_mode) != S_ISDIR(new_sb.st_mode) ) {
+            log(LOG_ERROR, "%s is a %s and %s is a %s\n",
+                    old_path, S_ISDIR(old_sb.st_mode) ? "directory" : "file",
+                    new_path, S_ISDIR(new_sb.st_mode) ? "directory" : "file");
+            return(-1);
+        }
+
+        if ( S_ISDIR(old_sb.st_mode) ) {
+            /* They're both directories, recurse */
+            if ( tree_patch(o_top, old_path+strlen(o_top)+1,
+                            n_top, new_path+strlen(n_top)+1, patch) < 0 ) {
+                return(-1);
+            }
+        } else {
+            /* They're both files, patch old to new */
+            if ( tree_patch_file(old_path, new_path,
+                                new_path+strlen(n_top)+2, patch) < 0 ) {
+                return(-1);
+            }
+        }
+    }
+    closedir(old);
+
+    /* Now go through and add new files and directories */
+    sprintf(path, "%s/%s", n_top, n_path);
+    new = opendir(path);
+    if ( ! new ) {
+        log(LOG_ERROR, "Unable to open directory: %s\n", path);
+        return(-1);
+    }
+    while ( (entry=readdir(new)) != NULL ) {
+        /* Skip "." and ".." entries */
+        if ( (strcmp(entry->d_name, ".") == 0) ||
+             (strcmp(entry->d_name, "..") == 0) ) {
+            continue;
+        }
+
+        /* Make sure we can see the new path */
+        sprintf(new_path, "%s/%s/%s", n_top, n_path, entry->d_name);
+        if ( stat(new_path, &new_sb) < 0 ) {
+            log(LOG_ERROR, "Unable to stat path: %s\n", new_path);
+            return(-1);
+        }
+
+        /* See if we can see the old path.  If so, handled above. */
+        sprintf(old_path, "%s/%s/%s", o_top, o_path, entry->d_name);
+        if ( stat(old_path, &old_sb) < 0 ) {
+            /* This is a new entry of some kind */
+            if ( S_ISDIR(new_sb.st_mode) ) {
+                if (tree_add_path(new_path,new_path+strlen(n_top)+2,patch) < 0){
+                    return(-1);
+                }
+            } else {
+                if (tree_add_file(new_path,new_path+strlen(n_top)+2,patch) < 0){
+                    return(-1);
+                }
+            }
+        }
+    }
+    closedir(new);
+
+    /* We're done! */
+    return (0);
+}
