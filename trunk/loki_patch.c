@@ -81,7 +81,6 @@ static void update_registry(product_t *product, loki_patch *patch)
             file_info = loki_findpath(op->path, product);
             if ( file_info ) {
                 install_option = loki_getoption_file(file_info);
-fprintf(stderr, "Unregistering %s\n", op->path);
                 loki_unregister_path(install_option, op->path);
             }
         }
