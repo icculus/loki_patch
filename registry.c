@@ -62,7 +62,7 @@ void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            if ( op->added ) {
+            if ( op->performed ) {
                 loki_register_file(install_option, op->dst, NULL);
             }
         }
@@ -75,7 +75,7 @@ void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            if ( op->added ) {
+            if ( op->performed ) {
                 loki_register_file(install_option, op->dst, op->sum);
             }
         }
@@ -88,7 +88,7 @@ void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            if ( op->added ) {
+            if ( op->performed ) {
                 loki_register_file(install_option, op->dst, NULL);
             }
         }
