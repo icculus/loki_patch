@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <limits.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -449,7 +450,8 @@ int apply_patch(loki_patch *patch, const char *dst)
     }
 
     /* Second stage, set environment and run pre-patch script */
-    { char env[2*PATH_MAX];
+    { char env[2*PATH_MAX], *bufp, *key;
+      struct optional_field *field;
         /* Set the environment for the patch scripts */
         /* Ack, I use strdup() because on LinuxPPC, putenv() just adds
            the pointer to the environ array, rather than duplicating it.
@@ -460,8 +462,17 @@ int apply_patch(loki_patch *patch, const char *dst)
         putenv(strdup(env));
         sprintf(env, "PATCH_VERSION=%s", patch->version);
         putenv(strdup(env));
-        sprintf(env, "PATCH_DESCRIPTION=%s", patch->description);
-        putenv(strdup(env));
+        for ( field=patch->optional_fields; field; field=field->next ) {
+            strcpy(env, "PATCH_");
+            bufp = env+strlen(env);
+            for ( key=field->key; *key; ++key ) {
+                *bufp++ = toupper(*key);
+            }
+            *bufp = '\0';
+            strcat(env, "=");
+            strncat(env, field->val, sizeof(env)-strlen(env));
+            putenv(strdup(env));
+        }
         sprintf(env, "PATCH_PATH=%s", dst);
         putenv(strdup(env));
         sprintf(env, "PATCH_OS=%s", detect_os());
@@ -475,6 +486,9 @@ int apply_patch(loki_patch *patch, const char *dst)
             return(-1);
         }
     }
+
+    /* Fire it up! */
+    log(LOG_NORMAL, " 0%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
 
     /* Third stage, apply deltas, create new paths, copy new files */
     { struct op_patch_file *op;

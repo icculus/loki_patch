@@ -5,10 +5,10 @@ Component:
 # This is the version of the product/component after patching
 Version: 1.0
 # This is a description of the patch, printed out at patch time
-Description: Product Patch
+Description: Product 1.0 Update
 # This is a command line run before the patch process
-Prepatch: sh pre-patch.sh $PATCH_PRODUCT $PATCH_VERSION $PATCH_PATH
+Prepatch: sh pre-patch.sh $PATCH_PRODUCT $PATCH_PATH
 # This is a command line run after the patch process
-Postpatch: sh post-patch.sh $PATCH_PRODUCT $PATCH_VERSION $PATCH_PATH
+Postpatch: sh post-patch.sh $PATCH_PRODUCT $PATCH_PATH
 
-%LOKI_PATCH 1.0 - Do not remove this line
+%LOKI_PATCH 1.0 - Do not remove this line!

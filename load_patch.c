@@ -8,22 +8,6 @@
 #include "load_patch.h"
 #include "log_output.h"
 
-#define SAMPLE_HEADER \
-"# This is the name of the product as listed in the installation registry\n" \
-"Product: product\n" \
-"# This is an optional component name, used for adding or patching add-ons\n" \
-"Component:\n" \
-"# This is the version of the product/component after patching\n" \
-"Version: 1.0\n" \
-"# This is a description of the patch, printed out at patch time\n" \
-"Description: Product Patch\n" \
-"# This is a command line run before the patch process\n" \
-"Prepatch: sh pre-patch.sh $product_name $install_path\n" \
-"# This is a command line run after the patch process\n" \
-"Postpatch: sh post-patch.sh $product_name $install_path\n" \
-"\n" \
-"%" LOKI_VERSION " - Do not remove this line!\n"
-
 #define BASE "data"
 
 
@@ -492,6 +476,44 @@ int load_del_path(FILE *file, int *line_num, const char *dst, loki_patch *patch)
     return(0);
 }
 
+static struct optional_field *add_optional_field(loki_patch *patch,
+                                  const char *key, const char *val)
+{
+    struct optional_field *field, *prev;
+
+    /* Look for the end of the list */
+    prev = NULL;
+    for ( field = patch->optional_fields; field; field = field->next ) {
+        prev = field;
+    }
+
+    /* Create a new optional field */
+    field = (struct optional_field *)malloc(sizeof *field);
+    if ( field ) {
+        field->key = strdup(key);
+        field->val = strdup(val);
+        field->next = NULL;
+        if ( ! field->key || ! field->val ) {
+            if ( field->key ) {
+                free(field->key);
+            }
+            if ( field->val ) {
+                free(field->val);
+            }
+            free(field);
+            field = NULL;
+        }
+    }
+
+    /* Add it to the list and return it */
+    if ( prev ) {
+        prev->next = field;
+    } else {
+        patch->optional_fields = field;
+    }
+    return(field);
+}
+
 static struct {
     const char *key;
     int (*func)(FILE *file, int *line_num, const char *dst, loki_patch *patch);
@@ -580,16 +602,13 @@ loki_patch *load_patch(const char *patchfile)
         if ( strcasecmp(line, "Product") == 0 ) {
             patch->product = strdup(token);
         } else
-        if ( strcasecmp(line, "Version") == 0 ) {
-            patch->version = strdup(token);
-        } else
         if ( strcasecmp(line, "Component") == 0 ) {
             if ( *token ) {
                 patch->component = strdup(token);
             }
         } else
-        if ( strcasecmp(line, "Description") == 0 ) {
-            patch->description = strdup(token);
+        if ( strcasecmp(line, "Version") == 0 ) {
+            patch->version = strdup(token);
         } else
         if ( strcasecmp(line, "Prepatch") == 0 ) {
             patch->prepatch = strdup(token);
@@ -597,15 +616,16 @@ loki_patch *load_patch(const char *patchfile)
         if ( strcasecmp(line, "Postpatch") == 0 ) {
             patch->postpatch = strdup(token);
         } else {
-            log(LOG_ERROR, "%s:%d Unknown header token: %s\n",
-                    patchfile, line_num, line);
-            free_patch(patch);
-            return (loki_patch *)0;
+            if ( ! add_optional_field(patch, line, token) ) {
+                log(LOG_ERROR, "Out of memory\n");
+                free_patch(patch);
+                return (loki_patch *)0;
+            }
         }
     }
 
     /* Verify that the header is complete */
-    if ( ! patch->product || ! patch->version || ! patch->description ) {
+    if ( ! patch->product || ! patch->version ) {
         log(LOG_ERROR,
     "The patch file doesn't contain a complete patch header:\n"
     SAMPLE_HEADER
@@ -656,6 +676,20 @@ loki_patch *load_patch(const char *patchfile)
 
     /* We're done! */
     return patch;
+}
+
+static void free_optional_fields(struct optional_field *fields)
+{
+    struct optional_field *field, *freeable;
+
+    field = fields;
+    while ( field ) {
+        freeable = field;
+        field = field->next;
+        free(freeable->key);
+        free(freeable->val);
+        free(freeable);
+    }
 }
 
 void free_add_path(struct op_add_path *add_path_list)
@@ -771,9 +805,7 @@ void free_patch(loki_patch *patch)
         if ( patch->component ) {
             free(patch->component);
         }
-        if ( patch->description ) {
-            free(patch->description);
-        }
+        free_optional_fields(patch->optional_fields);
         if ( patch->prepatch ) {
             free(patch->prepatch);
         }
