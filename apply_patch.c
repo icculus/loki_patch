@@ -315,7 +315,9 @@ static int remove_directory(const char *path,
     /* Make sure we can read the directory */
     dir = opendir(path);
     if ( ! dir ) {
+#if 0 /* No worries */
         log(LOG_ERROR, "Unable to list %s\n", path);
+#endif
         return(-1);
     }
 
