@@ -450,20 +450,23 @@ int apply_patch(loki_patch *patch, const char *dst)
     /* Second stage, set environment and run pre-patch script */
     { char env[2*PATH_MAX];
         /* Set the environment for the patch scripts */
+        /* Ack, I use strdup() because on LinuxPPC, putenv() just adds
+           the pointer to the environ array, rather than duplicating it.
+         */
         sprintf(env, "PATCH_PRODUCT=%s", patch->product);
-        putenv(env);
+        putenv(strdup(env));
         sprintf(env, "PATCH_COMPONENT=%s", patch->component);
-        putenv(env);
+        putenv(strdup(env));
         sprintf(env, "PATCH_VERSION=%s", patch->version);
-        putenv(env);
+        putenv(strdup(env));
         sprintf(env, "PATCH_DESCRIPTION=%s", patch->description);
-        putenv(env);
+        putenv(strdup(env));
         sprintf(env, "PATCH_PATH=%s", dst);
-        putenv(env);
+        putenv(strdup(env));
         sprintf(env, "PATCH_OS=%s", detect_os());
-        putenv(env);
+        putenv(strdup(env));
         sprintf(env, "PATCH_ARCH=%s", detect_arch());
-        putenv(env);
+        putenv(strdup(env));
     }
     if ( patch->prepatch ) {
         if ( system(patch->prepatch) != 0 ) {
