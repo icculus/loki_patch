@@ -23,13 +23,14 @@ all: make_patch loki_patch
 
 make_patch: $(MAKE_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
+	$(SETUPDB)/brandelf -t $(OS) $@
 
 loki_patch: $(LOKI_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
-	if test ! -d image/bin/$(OS); then mkdir image/bin/$(OS); fi
-	if test ! -d image/bin/$(OS)/$(ARCH); then mkdir image/bin/$(OS)/$(ARCH); fi
-	cp $@ image/bin/$(OS)/$(ARCH)/
-	strip image/bin/$(OS)/$(ARCH)/$@
+	$(SETUPDB)/brandelf -t $(OS) $@
+
+$(SETUPDB)/brandelf:
+	$(MAKE) -C $(SETUPDB) brandelf
 
 test: all cleanpat
 	gzip -cd test.tar.gz | tar xf -
@@ -40,11 +41,17 @@ test: all cleanpat
 	cp -rp test/bin-1.1a/* test/out/
 	(cd test/patch; ../../loki_patch -v patch.dat ../out)
 
-distclean: clean
-	rm -f make_patch loki_patch
+install:
+	if test ! -d image/bin/$(OS); then mkdir image/bin/$(OS); fi
+	if test ! -d image/bin/$(OS)/$(ARCH); then mkdir image/bin/$(OS)/$(ARCH); fi
+	cp loki_patch image/bin/$(OS)/$(ARCH)/
+	strip image/bin/$(OS)/$(ARCH)/loki_patch
 
 clean: cleanpat
 	rm -f *.o core
+
+distclean: clean
+	rm -f make_patch loki_patch
 
 cleanpat:
 	rm -rf test
