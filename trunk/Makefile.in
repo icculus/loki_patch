@@ -2,11 +2,14 @@
 INSTALL_PATH := @prefix@
 OS := @OS@
 ARCH := @ARCH@
+VERSION := @VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_RELEASE@
+
 
 SETUPDB = ../setupdb
 CFLAGS = -g -Wall
 CFLAGS += -I$(SETUPDB)
 CFLAGS += $(shell xdelta-config --cflags) $(shell xml-config --cflags)
+CFLAGS += -DVERSION=\"$(VERSION)\"
 LFLAGS += -L$(SETUPDB)/$(ARCH) -lsetupdb
 LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -static
 
