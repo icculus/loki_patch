@@ -610,6 +610,9 @@ loki_patch *load_patch(const char *patchfile)
         if ( strcasecmp(line, "Version") == 0 ) {
             patch->version = strdup(token);
         } else
+        if ( strcasecmp(line, "Size") == 0 ) {
+            /* Discard the size attribute - it's recalculated */ ;
+        } else
         if ( strcasecmp(line, "Prepatch") == 0 ) {
             patch->prepatch = strdup(token);
         } else
