@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <zlib.h>
+
 #include "loki_patch.h"
 #include "load_patch.h"
 #include "tree_patch.h"
@@ -271,7 +273,8 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
     struct op_add_file *op;
     char pat_path[PATH_MAX];
     struct stat sb;
-    FILE *src_fp, *pat_fp;
+    FILE *src_fp;
+    gzFile pat_zfp;
     int len;
     char data[4096];
 
@@ -317,18 +320,31 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
         return(-1);
     }
     src_fp = fopen(path, "rb");
-    pat_fp = fopen(pat_path, "wb");
+    if ( src_fp == NULL ) {
+        log(LOG_ERROR, "Unable to open %s\n", path);
+        free(op);
+        return(-1);
+    }
+    pat_zfp = gzopen(pat_path, "wb9");
+    if ( pat_zfp == NULL ) {
+        log(LOG_ERROR, "Unable to open %s\n", path);
+        fclose(src_fp);
+        free(op);
+        return(-1);
+    }
     while ( (len=fread(data, 1, sizeof(data), src_fp)) > 0 ) {
-        if ( fwrite(data, 1, len, pat_fp) != len ) {
+        if ( gzwrite(pat_zfp, data, len) != len ) {
             log(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
             fclose(src_fp);
-            fclose(pat_fp);
+            gzclose(pat_zfp);
             free(op);
             return(-1);
         }
     }
     fclose(src_fp);
-    fclose(pat_fp);
+    if ( gzclose(pat_zfp) != Z_OK ) {
+        log(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
+    }
 
     /* Put it all together now */
     op->dst = strdup(dst);
