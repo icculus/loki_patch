@@ -1,0 +1,97 @@
+
+Loki Patch Tools 1.0
+
+
+Introduction
+============
+This is a set of tools written by Loki Software, Inc., designed to
+create a set of binary patches that can be easily used either by
+themselves or in conjunction with the Loki Update Tool.
+
+
+Licensing
+=========
+This update tool is available for use under the GNU General Public License.
+
+
+How To Create A Patch
+=====================
+
+ * Create a directory for your patch source files:
+
+     mkdir upgrade
+     cd upgrade
+
+ * Create binary and data directories for the original files. e.g: 
+
+     mkdir bin-1.54a-x86 data-1.54a
+
+ * Create binary and data directories for the new files, e.g: 
+
+     mkdir bin-1.54b-x86 data-1.54b
+
+ * Copy the appropriate files into the directories, e.g.: 
+
+    cp /usr/local/games/rt2.old/rt2 bin-1.54a-x86/rt2
+    cp /usr/local/games/rt2.new/rt2 bin-1.54b-x86/rt2
+
+    cp /usr/local/games/rt2.old/default2.lng data-1.54a/
+    cp /usr/local/games/rt2.new/default2.lng data-1.54b/
+
+ * Copy the patch README into the new data directory, e.g: 
+
+    cp /usr/local/games/rt2.new/README-1.54b data-1.54b/README-1.54b
+
+ * Copy the patch tools image directory to a new patch directory tree, e.g: 
+
+    cp -av ~/loki_patch/image rt2-1.54b-x86
+
+ * Generate deltas of the binaries and data files. 
+
+     make_patch rt2-1.54b-x86/patch.dat delta-install bin-1.54a-x86 bin-1.54b-x86
+     make_patch rt2-1.54b-x86/patch.dat delta-install data-1.54a-x86 data-1.54b-x86
+
+   The make_patch tool is very flexible, run it without any options to see a list of commands that it recognizes. 
+
+ * Customize the patch description file, patch.dat, if necessary, e.g.
+
+     vi rt2-1.54b-x86/patch.dat
+
+ * Copy the README into the patch directory, e.g: 
+
+     cp data-1.54b/README-1.54b rt2-1.54b-x86/README.txt
+
+   This file is shown to the user before they apply the patch. 
+
+ * Pack the patch archive, e.g: 
+
+     makeself.sh rt2-1.54b-x86 rt2-1.54b-x86.run "Railroad Tycoon II 1.54b update" ./apply-patch.sh
+
+ * Test the patch on a fresh install, e.g: 
+
+     # remove old versions, install from CD, patch up to current level
+     sh rt2-1.54b-x86.run
+
+ * Generate the GPG signature, named patch.sig, e.g: 
+
+     gpg --secret-keyring /mnt/cdrom/secring.gpg --detach-sign rt2-1.54b-x86.run
+
+ * Generate the MD5 checksum, named patch.md5, e.g: 
+
+     md5sum rt2-1.54b-x86.run >rt2-1.54b-x86.run.md5
+
+ * Generate the README, named patch.txt, e.g: 
+
+     cp rt2-1.54b-x86/README.txt rt2-1.54b-x86.run.txt
+
+ * Generate the Loki Update Tool entry for the patch, e.g:
+
+     loki_patch --info rt2-1.54b-x86/patch.dat >>updates.txt
+
+ * Copy the patch to your public relase directory and you're done!
+
+
+Author
+======
+The Loki Patch Tools were written by Sam Lantinga at Loki Software, Inc.
+
