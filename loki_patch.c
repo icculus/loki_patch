@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "loki_patch.h"
 #include "load_patch.h"
@@ -14,12 +15,36 @@ static void print_usage(const char *argv0)
 	fprintf(stderr, "Usage: %s patch-file [install-path]\n", argv0);
 }
 
-static void update_registry(product_t *product, loki_patch *patch)
+static char *get_product_root(const char *product, char *path, int maxpath)
 {
+    product_t *the_product;
+    product_info_t *product_info;
+
+    /* Check the registry for this product */
+    the_product = loki_openproduct(product);
+    if ( the_product ) {
+        product_info = loki_getinfo_product(the_product);
+        strncpy(path, product_info->root, maxpath);
+        loki_closeproduct(the_product);
+    } else {
+        path = NULL;
+    }
+    return path;
+}
+
+static void update_registry(loki_patch *patch)
+{
+    product_t *product;
     product_option_t *default_option;
     product_file_t *file_info;
     product_option_t *install_option;
     product_component_t *component;
+
+    /* Open the product for updating */
+    product = loki_openproduct(patch->product);
+    if ( ! product ) {
+        return;
+    }
 
     /* The patch component defaults to the default product component */
     if ( patch->component ) {
@@ -85,13 +110,13 @@ static void update_registry(product_t *product, loki_patch *patch)
             }
         }
     }
-    return;
+    loki_closeproduct(product);
 }
 
 int main(int argc, char *argv[])
 {
-    product_t *product;
-    product_info_t *product_info;
+    char path[PATH_MAX];
+    char *product_root;
 	loki_patch *patch;
     const char *install;
 
@@ -114,12 +139,6 @@ int main(int argc, char *argv[])
 		exit(2);
 	}
 
-    /* Check the registry for this product */
-    product = loki_openproduct(patch->product);
-    if ( product ) {
-        product_info = loki_getinfo_product(product);
-    }
-
     /* See if we're just verifying the patch */
     if ( argv[2] && (strcmp(argv[2], "--verify") == 0) ) {
         /* Patch is okay by this point */
@@ -131,34 +150,21 @@ int main(int argc, char *argv[])
     if ( argv[2] ) {
         install = argv[2];
     } else {
-        if ( ! product ) {
-            /* FIXME: Prompt for the install path? */
-            printf("Unable to find install path for %s\n", patch->product);
-            print_usage(argv[0]);
-            exit(3);
-        }
-        install = product_info->root;
+        install = get_product_root(patch->product, path, (sizeof path));
     }
-    if ( product ) {
-        /* Double check the install path */
-        if ( strcmp(install, product_info->root) != 0 ) {
-            log(LOG_ERROR, "Warning: product installed in %s, patching %s\n",
-                product_info->root, install);
-            loki_closeproduct(product);
-            product = (product_t *)0;
-        }
+    if ( ! install ) {
+        printf("Unable to find install path for %s\n", patch->product);
+        print_usage(argv[0]);
+        exit(3);
     }
 	if ( apply_patch(patch, install) ) {
 		exit(3);
 	}
 
-    /* Update the registry */
-    if ( product ) {
-        update_registry(product, patch);
-
-        /* Write it all out */
-        loki_closeproduct(product);
-        product = (product_t *)0;
+    /* Update the registry, if we're updating the proper path */
+    product_root = get_product_root(patch->product, path, sizeof(path));
+    if ( product_root && (strcmp(install, product_root) == 0) ) {
+        update_registry(patch);
     }
 
     /* We're done! */
