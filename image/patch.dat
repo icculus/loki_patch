@@ -6,5 +6,9 @@ Component:
 Version: 1.0
 # This is a description of the patch, printed out at patch time
 Description: Product Patch
+# This is a command line run before the patch process
+Prepatch: sh pre-patch.sh $product_name $install_path
+# This is a command line run after the patch process
+Postpatch: sh post-patch.sh $product_name $install_path
 
 %LOKI_PATCH 1.0 - Do not remove this line

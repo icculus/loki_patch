@@ -62,6 +62,8 @@ typedef struct loki_patch {
     char *component;        /* The component modified by this patch */
     char *version;          /* The component version of the patch */
     char *description;      /* The text description of the patch */
+    char *prepatch;         /* Command to run before the patch is applied */
+    char *postpatch;        /* Command to run after the patch is applied */
 
     struct op_add_path *add_path_list;
     struct op_add_file *add_file_list;

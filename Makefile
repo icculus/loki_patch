@@ -31,11 +31,11 @@ loki_patch: $(LOKI_PATCH_OBJS)
 
 test: all cleanpat
 	gzip -cd test.tar.gz | tar xf -
-	./make_patch test/patch/test.pat load-file test/build-patch
+	./make_patch test/patch/patch.dat load-file test/build-patch
 	mkdir test/out
 	cp -rp test/old/* test/out/
 	cp -rp test/bin-1.1a/* test/out/
-	./loki_patch -v test/patch/test.pat test/out
+	(cd test/patch; ../../loki_patch -v patch.dat ../out)
 
 distclean: clean
 	rm -f make_patch loki_patch
