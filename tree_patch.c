@@ -581,6 +581,7 @@ int tree_patch_file(const char *o_path,
         op->options = (struct delta_option *)0;
         op->mode = 0;
         op->size = 0;
+        op->optional = 0;
         op->next = patch->patch_file_list;
         patch->patch_file_list = op;
     }

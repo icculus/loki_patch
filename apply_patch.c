@@ -157,6 +157,9 @@ static int apply_patch_file(const char *base,
         sprintf(dst_path, "%s/%s", dst, op->dst);
     }
     if ( stat(dst_path, &sb) < 0 ) {
+        if ( op->optional )  {
+            return(0);
+        }
         log(LOG_ERROR, "Can't find %s\n", dst_path);
         return(-1);
     }
@@ -223,6 +226,7 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
 {
     char o_path[PATH_MAX];
     char n_path[PATH_MAX];
+    struct stat sb;
     int retval;
 
     /* Rename the patched file */
@@ -232,6 +236,11 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
     } else {
         sprintf(o_path, "%s/%s.new", dst, op->dst);
         sprintf(n_path, "%s/%s", dst, op->dst);
+    }
+    if ( stat(n_path, &sb) < 0 ) {
+        if ( op->optional )  {
+            return(0);
+        }
     }
     retval = rename(o_path, n_path);
     if ( retval < 0 ) {
@@ -275,7 +284,9 @@ static int apply_del_file(struct op_del_file *op, const char *dst,
     assemble_path(path, dst, op->dst);
     retval = unlink(path);
     if ( retval < 0 ) {
-        log(LOG_ERROR, "Unable to remove %s\n", path);
+#if 0 /* No worries */
+        log(LOG_WARNING, "Unable to remove %s\n", path);
+#endif
     } else {
         add_removed_path(path, dst, paths);
     }
