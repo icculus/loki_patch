@@ -11,9 +11,17 @@
 "# This is an optional component name, used for adding or patching add-ons\n" \
 "Component:\n" \
 "# This is the version of the product/component after patching\n" \
-"Version: 1.0\n" \
+"Version: 1.1\n" \
 "# This is a description of the patch, printed out at patch time\n" \
 "Description: Product 1.0 Update\n" \
+"# This is an optional comma separated list of valid architectures\n" \
+"Architecture: any\n" \
+"# This is an optional comma separated list of valid C library versions\n" \
+"Libc: any\n" \
+"# This is the version of product or component to which the update applies\n" \
+"Applies: 1.0\n" \
+"# This is the name of the update archive on the mirror sites\n" \
+"File: product-1.1.run\n" \
 "# This is a command line run before the patch process\n" \
 "Prepatch: sh pre-patch.sh $PATCH_PRODUCT $PATCH_PATH\n" \
 "# This is a command line run after the patch process\n" \
