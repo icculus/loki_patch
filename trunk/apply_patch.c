@@ -185,6 +185,9 @@ static int apply_patch_file(const char *base,
         }
     }
     if ( ! delta ) {
+        if ( op->optional )  {
+            return(0);
+        }
         log(LOG_ERROR, "No matching delta for %s\n", dst_path);
         return(-1);
     }
