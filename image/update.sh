@@ -24,9 +24,10 @@ FindPath()
     if [ "$fullpath" = "" ]; then
         fullpath="$1"
     fi
-    # Is the awk/ls magic portable?
+    # Is the sed/ls magic portable?
     if [ -L "$fullpath" ]; then
-        fullpath="`ls -l "$fullpath" | awk '{print $11}'`"
+        #fullpath="`ls -l "$fullpath" | awk '{print $11}'`"
+        fullpath=`ls -l "$fullpath" |sed -e 's/.* -> //' |sed -e 's/\*//'`
     fi
     dirname $fullpath
 }
@@ -130,7 +131,7 @@ if tty -s && [ "$prompt" = "yes" ]; then
         done
     fi
 fi
- 
+
 echo ""
 echo "============================================================="
 echo "Performing update:"
