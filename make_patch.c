@@ -14,6 +14,8 @@
 static void print_usage(const char *argv0)
 {
     fprintf(stderr,
+"Loki Patch Tools " VERSION "\n");
+    fprintf(stderr,
 "Usage: %s patch-file command arguments\n"
 "Where command and arguments are one of:\n"
 "   delta-install old-tree1 [old-tree2] [old-tree3] new-tree\n"
@@ -217,26 +219,26 @@ static int interpret_args(const char *argv0, int argc, char *args[],
 
 int main(int argc, char *argv[])
 {
-	loki_patch *patch;
+    loki_patch *patch;
 
     set_logging(LOG_VERBOSE);
-	if ( argc < 3 ) {
+    if ( argc < 3 ) {
         print_usage(argv[0]);
-		exit(1);
-	}
-	patch = load_patch(argv[1]);
-	if ( ! patch ) {
-		exit(2);
-	}
+        exit(1);
+    }
+    patch = load_patch(argv[1]);
+    if ( ! patch ) {
+        exit(2);
+    }
 
     if ( interpret_args(argv[0], argc-2, argv+2, patch) < 0 ) {
         exit(3);
     }
 
-	if ( save_patch(patch, argv[1]) ) {
-		exit(4);
-	}
-	free_patch(patch);
+    if ( save_patch(patch, argv[1]) ) {
+        exit(4);
+    }
+    free_patch(patch);
 
-	return(0);
+    return(0);
 }

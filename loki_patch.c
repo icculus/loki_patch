@@ -15,6 +15,7 @@
 
 static void print_usage(const char *argv0)
 {
+    fprintf(stderr, "Loki Patch Tools " VERSION "\n");
     fprintf(stderr, "Usage: %s [--info] patch-file [install-path]\n", argv0);
 }
 
