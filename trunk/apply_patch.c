@@ -55,7 +55,7 @@ static int apply_add_path(struct op_add_path *op, const char *dst)
         if ( retval < 0 ) {
             log(LOG_ERROR, "Unable to make path %s\n", path);
         } else {
-            op->added = 1;
+            op->performed = 1;
         }
     }
     return(retval);
@@ -98,7 +98,7 @@ static int apply_add_file(const char *base,
         gzclose(src_zfp);
         return(-1);
     }
-    op->added = 1;
+    op->performed = 1;
 
     /* Copy the data */
     disk_done *= 1024;
@@ -145,7 +145,7 @@ static int apply_symlink_file(const char *base,
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to create symlink %s\n", path);
     } else {
-        op->added = 1;
+        op->performed = 1;
     }
     return(retval);
 }
@@ -211,6 +211,7 @@ static int apply_patch_file(const char *base,
         log(LOG_ERROR, "Failed checksum: %s\n", dst_path);
         return(-1);
     }
+    op->performed = 1;
     delta->installed = 1;
 
     return(0);
@@ -241,7 +242,6 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
 {
     char o_path[PATH_MAX];
     char n_path[PATH_MAX];
-    struct stat sb;
     int retval;
 
     /* Rename the patched file */
@@ -251,11 +251,6 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
     } else {
         sprintf(o_path, "%s/%s.new", dst, op->dst);
         sprintf(n_path, "%s/%s", dst, op->dst);
-    }
-    if ( op->optional ) {
-        if ( (stat(o_path, &sb) < 0) || (stat(n_path, &sb) < 0) ) {
-            return(0);
-        }
     }
     retval = rename(o_path, n_path);
     if ( retval < 0 ) {
@@ -497,6 +492,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_patch_file *op;
 
         for ( op = patch->patch_file_list; op; op=op->next ) {
+            op->performed = 0;
             if ( apply_patch_file(patch->base, op, dst) < 0 ) {
                 return(-1);
             }
@@ -511,7 +507,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_add_path *op;
 
         for ( op = patch->add_path_list; op; op=op->next ) {
-            op->added = 0;
+            op->performed = 0;
             if ( apply_add_path(op, dst) < 0 ) {
                 return(-1);
             }
@@ -520,7 +516,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_add_file *op;
 
         for ( op = patch->add_file_list; op; op=op->next ) {
-            op->added = 0;
+            op->performed = 0;
             if (apply_add_file(patch->base, op, dst, disk_done, disk_used) < 0){
                 return(-1);
             }
@@ -535,7 +531,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_symlink_file *op;
 
         for ( op = patch->symlink_file_list; op; op=op->next ) {
-            op->added = 0;
+            op->performed = 0;
             if ( apply_symlink_file(patch->base, op, dst) < 0 ) {
                 return(-1);
             }
@@ -546,16 +542,20 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_patch_file *op;
 
         for ( op = patch->patch_file_list; op; op=op->next ) {
-            if ( rename_patch_file(op, dst) < 0 ) {
-                return(-1);
+            if ( op->performed ) {
+                if ( rename_patch_file(op, dst) < 0 ) {
+                    return(-1);
+                }
             }
         }
     }
     { struct op_add_file *op;
 
         for ( op = patch->add_file_list; op; op=op->next ) {
-            if ( rename_add_file(op, dst) < 0 ) {
-                return(-1);
+            if ( op->performed ) {
+                if ( rename_add_file(op, dst) < 0 ) {
+                    return(-1);
+                }
             }
         }
     }
