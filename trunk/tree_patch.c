@@ -779,7 +779,18 @@ int tree_patch(const char *o_top, const char *o_path,
     char old_path[PATH_MAX];
     char new_path[PATH_MAX];
     struct stat old_sb, new_sb;
+    int status;
 
+    /* No errors yet */
+    status = 0;
+
+    /* If both paths are the same, then there's nothing to do */
+    sprintf(old_path, "%s/%s", o_top, o_path);
+    sprintf(new_path, "%s/%s", n_top, n_path);
+    if ( strcmp(old_path, new_path) == 0 ) {
+        return(0);
+    }
+    
     /* First get all the files that are in the old path */
     sprintf(path, "%s/%s", o_top, o_path);
     old = opendir(path);
@@ -798,7 +809,8 @@ int tree_patch(const char *o_top, const char *o_path,
         sprintf(old_path, "%s/%s/%s", o_top, o_path, entry->d_name);
         if ( lstat(old_path, &old_sb) < 0 ) {
             log(LOG_ERROR, "Unable to stat path: %s\n", old_path);
-            return(-1);
+            --status;
+            continue;
         }
 
         /* See if the new entry doesn't exist, and we have to remove it */
@@ -807,11 +819,11 @@ int tree_patch(const char *o_top, const char *o_path,
             /* This is an obsolete entry */
             if ( S_ISDIR(old_sb.st_mode) ) {
                 if ( tree_del_path(old_path+strlen(o_top)+2, patch) < 0 ) {
-                    return(-1);
+                    --status;
                 }
             } else {
                 if ( tree_del_file(old_path+strlen(o_top)+2, patch) < 0 ) {
-                    return(-1);
+                    --status;
                 }
             }
             continue;
@@ -822,20 +834,21 @@ int tree_patch(const char *o_top, const char *o_path,
             log(LOG_ERROR, "%s is a %s and %s is a %s\n",
                     old_path, S_ISDIR(old_sb.st_mode) ? "directory" : "file",
                     new_path, S_ISDIR(new_sb.st_mode) ? "directory" : "file");
-            return(-1);
+            --status;
+            continue;
         }
 
         if ( S_ISDIR(old_sb.st_mode) ) {
             /* They're both directories, recurse */
             if ( tree_patch(o_top, old_path+strlen(o_top)+1,
                             n_top, new_path+strlen(n_top)+1, patch) < 0 ) {
-                return(-1);
+                --status;
             }
         } else {
             /* They're both files, patch old to new */
             if ( tree_patch_file(old_path, new_path,
                                 new_path+strlen(n_top)+2, patch) < 0 ) {
-                return(-1);
+                --status;
             }
         }
     }
@@ -859,7 +872,8 @@ int tree_patch(const char *o_top, const char *o_path,
         sprintf(new_path, "%s/%s/%s", n_top, n_path, entry->d_name);
         if ( lstat(new_path, &new_sb) < 0 ) {
             log(LOG_ERROR, "Unable to stat path: %s\n", new_path);
-            return(-1);
+            --status;
+            continue;
         }
 
         /* See if we can see the old path.  If so, handled above. */
@@ -868,11 +882,11 @@ int tree_patch(const char *o_top, const char *o_path,
             /* This is a new entry of some kind */
             if ( S_ISDIR(new_sb.st_mode) ) {
                 if (tree_add_path(new_path,new_path+strlen(n_top)+2,patch) < 0){
-                    return(-1);
+                    --status;
                 }
             } else {
                 if (tree_add_file(new_path,new_path+strlen(n_top)+2,patch) < 0){
-                    return(-1);
+                    --status;
                 }
             }
         }
@@ -880,7 +894,7 @@ int tree_patch(const char *o_top, const char *o_path,
     closedir(new);
 
     /* We're done! */
-    return (0);
+    return(status);
 }
 
 /* Add a set of files and directories from a UNIX tar file
