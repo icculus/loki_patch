@@ -19,6 +19,7 @@ static void print_usage(const char *argv0)
 "   delta-file old-file new-file installed-name\n"
 "   add-path new-path installed-name\n"
 "   add-file new-file installed-name\n"
+"   symlink-file link installed-name\n"
 "   del-path installed-path\n"
 "   del-file installed-file\n"
 "   load-file commands-file\n",
@@ -121,6 +122,15 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             return(-1);
         }
         return tree_add_file(args[1], args[2], patch);
+    }
+
+    if ( strcmp(args[0], "symlink-file") == 0 ) {
+        if ( argc != 3 ) {
+            fprintf(stderr, "symlink-file requires 2 arguments\n");
+            print_usage(argv0);
+            return(-1);
+        }
+        return tree_symlink_file(args[1], args[2], patch);
     }
 
     if ( strcmp(args[0], "del-path") == 0 ) {

@@ -300,6 +300,75 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
     return(0);
 }
 
+int load_symlink_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
+{
+    struct op_symlink_file *op;
+    char line[1024];
+    char *key, *value;
+
+    /* Allocate memory for the operation */
+    op = (struct op_symlink_file *)malloc(sizeof *op);
+    if ( ! op ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+    memset(op, 0, (sizeof *op));
+
+    /* Load the information for this section */
+    while ( fgets(line, sizeof(line), file) ) {
+        /* Chop the newline */
+        ++*line_num;
+        line[strlen(line)-1] = '\0';
+
+        /* Is this the end of the section? */
+        if ( ! line[0] ) {
+            break;
+        }
+
+        /* Skip comment lines */
+        if ( line[0] == '#' ) {
+            continue;
+        }
+
+        /* Make sure it's a format we know */
+        key = line;
+        value = strchr(key, '=');
+        if ( ! value ) {
+            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            return(-1);
+        }
+        *value++ = '\0';
+
+        if ( strcmp(key, "link") == 0 ) {
+            op->link = strdup(value);
+        } else {
+            log(LOG_ERROR, "Unknown SYMLINK FILE key %d: %s\n", *line_num, key);
+            return(-1);
+        }
+    }
+
+    /* Make sure we have all the information we need */
+    if ( ! op->link ) {
+        log(LOG_ERROR, "Incomplete SYMLINK FILE entry above line %d\n",
+                                                            *line_num);
+        return(-1);
+    }
+    op->dst = strdup(dst);
+
+    /* Add the operation to the end of our list */
+    if ( patch->del_file_list ) {
+        struct op_symlink_file *here;
+
+        for ( here=patch->symlink_file_list; here->next; here=here->next )
+            ;
+        here->next = op;
+    } else {
+        patch->symlink_file_list = op;
+    }
+
+    return(0);
+}
+
 int load_del_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
 {
     struct op_del_file *op;
@@ -424,11 +493,12 @@ static struct {
     const char *key;
     int (*func)(FILE *file, int *line_num, const char *dst, loki_patch *patch);
 } load_table[] = {
-    {   "ADD FILE ",        load_add_file   },
-    {   "ADD PATH ",        load_add_path   },
-    {   "PATCH FILE ",      load_patch_file },
-    {   "DEL FILE ",        load_del_file   },
-    {   "DEL PATH ",        load_del_path   }
+    {   "ADD FILE ",        load_add_file       },
+    {   "ADD PATH ",        load_add_path       },
+    {   "PATCH FILE ",      load_patch_file     },
+    {   "SYMLINK FILE ",    load_symlink_file   },
+    {   "DEL FILE ",        load_del_file       },
+    {   "DEL PATH ",        load_del_path       }
 };
 
 loki_patch *load_patch(const char *patchfile)
@@ -632,6 +702,19 @@ static void free_patch_file(struct op_patch_file *patch_file_list)
     }
 }
 
+static void free_symlink_file(struct op_symlink_file *symlink_file_list)
+{
+    struct op_symlink_file *freeable;
+
+    while ( symlink_file_list ) {
+        freeable = symlink_file_list;
+        symlink_file_list = symlink_file_list->next;
+        free(freeable->dst);
+        free(freeable->link);
+        free(freeable);
+    }
+}
+
 static void free_del_file(struct op_del_file *del_file_list)
 {
     struct op_del_file *freeable;
@@ -697,6 +780,7 @@ void free_patch(loki_patch *patch)
         free_add_path(patch->add_path_list);
         free_add_file(patch->add_file_list);
         free_patch_file(patch->patch_file_list);
+        free_symlink_file(patch->symlink_file_list);
         free_del_file(patch->del_file_list);
         free_del_path(patch->del_path_list);
         free_removed_paths(patch->removed_paths);

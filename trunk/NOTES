@@ -34,16 +34,17 @@ newsum = YYY
 mode =
 size =
 
-//?? SYMLINK FILE
-//?? link =
+SYMLINK FILE dst
+link = 
 
 All of the operations have the following attribute which may be added manually:
 fail = {okay,warn,error} // default to error
 
 The operations are sorted internally into the following steps:
-PATCH FILE
 ADD DIRECTORY
 ADD FILE
+PATCH FILE
+SYMLINK FILE
 DEL FILE
 DEL DIRECTORY
 
