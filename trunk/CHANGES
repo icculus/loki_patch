@@ -1,3 +1,7 @@
+current:
+Ryan C. Gordon (Epic Games) - Fri Oct 11 22:53:13 EDT 2002
+ * Changed image/update.sh to handle bleeding edge "ls" (har.)
+
 1.0.2:
 Sam Lantinga - Wed May  2 12:08:16 PDT 2001
  * Added --noprompt command line option to update.sh
