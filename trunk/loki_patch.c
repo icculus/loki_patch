@@ -144,14 +144,11 @@ static void update_registry(loki_patch *patch)
       loki_split_version(patch->version,
                          new_versionbase, sizeof(new_versionbase),
                          new_versionext, sizeof(new_versionext));
-      if ( strcmp(old_versionext, new_versionext) != 0 ) {
-          /* Must be a version flavor change, don't update the base version.
-             The auto-update tool enforces this rule; you can update either
-             the flavor or the base of a version, but not both.  This code
-             has been added to allow patch to switch the flavor of multiple
-             base versions of a product.
-           */
+      if ( strcmp(new_versionbase, "*") == 0 ) {
           strcpy(new_versionbase, old_versionbase);
+      }
+      if ( strcmp(new_versionext, "*") == 0 ) {
+          strcpy(new_versionext, old_versionext);
       }
       sprintf(new_version, "%s%s", new_versionbase, new_versionext);
       loki_setversion_component(component, new_version);
