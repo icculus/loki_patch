@@ -1,0 +1,74 @@
+
+This tool takes multiple trees of old files and a single tree of new files
+and creates a patch that will convert any of the old trees into the new tree.
+
+The patch creation tool will be able to take additional trees and merge
+them into existing patches (to add multiple binary versions, for example.)
+The new trees will have to be disjoint from existing patch entries.
+
+Each of the operations have an old checksum and a new checksum associated
+with the files so that error checking and verification are very reliable.
+
+It generates the following operations:
+
+ADD FILE dst
+src =
+sum = 
+mode =
+size =
+
+ADD PATH dst
+mode =
+
+DEL PATH dst
+
+DEL PATH dst
+
+PATCH FILE dst
+oldsum = XXX
+src =
+newsum = YYY
+.
+.
+.
+mode =
+size =
+optional = {0,1}
+
+SYMLINK FILE dst
+link = 
+
+All of the operations have the following attribute which may be added manually:
+fail = {okay,warn,error} // default to error
+
+The operations are sorted internally into the following steps:
+ADD DIRECTORY
+ADD FILE
+PATCH FILE
+SYMLINK FILE
+DEL FILE
+DEL DIRECTORY
+
+The patch file contains a header which specifies the product, the
+patch revision, and a verbose description of the product.
+
+The startup patch script will show the user the README and ask if they
+want to perform the patch.  It will then perform any sort of pre-patch
+scripting, and then start the patch process.
+
+The patch process is done in two passes:
+First, check available disk space against precalculated space requirements,
+then add new files and patch existing files to new files with .new extensions.
+If everything succeeds, then remove old files and move new files into place.
+
+The initial set of checksums are retrieved from the installed registry.
+If a patch application fails, it double-checks the checksum of the file
+against the checksum in the repository, and reports any errors.
+
+After the patch succeeds, the patch tool will update the install registry,
+if available.
+
+The patch program will provide three types of output:
+1.  silent - print only errors
+2.  normal - print progress in terms of stages and percentages
+3.  verbose - print progress in terms of stages and operations
