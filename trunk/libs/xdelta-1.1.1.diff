@@ -1,6 +1,6 @@
-diff -ruN xdelta-1.1.1/config.guess xdelta-1.1.1.new/config.guess
---- xdelta-1.1.1/config.guess	Fri Apr  9 17:58:53 1999
-+++ xdelta-1.1.1.new/config.guess	Mon Oct 23 14:09:15 2000
+diff -ruN xdelta-1.1.1.orig/config.guess xdelta-1.1.1/config.guess
+--- xdelta-1.1.1.orig/config.guess	Tue Apr 10 18:08:13 2001
++++ xdelta-1.1.1/config.guess	Mon Oct 23 14:09:15 2000
 @@ -1,7 +1,10 @@
  #! /bin/sh
  # Attempt to guess a canonical system name.
@@ -880,9 +880,9 @@ diff -ruN xdelta-1.1.1/config.guess xdelta-1.1.1.new/config.guess
 +# time-stamp-format: "%:y-%02m-%02d"
 +# time-stamp-end: "'"
 +# End:
-diff -ruN xdelta-1.1.1/config.sub xdelta-1.1.1.new/config.sub
---- xdelta-1.1.1/config.sub	Fri Apr  9 17:58:53 1999
-+++ xdelta-1.1.1.new/config.sub	Mon Oct 23 14:09:19 2000
+diff -ruN xdelta-1.1.1.orig/config.sub xdelta-1.1.1/config.sub
+--- xdelta-1.1.1.orig/config.sub	Tue Apr 10 18:08:13 2001
++++ xdelta-1.1.1/config.sub	Mon Oct 23 14:09:19 2000
 @@ -1,6 +1,10 @@
  #! /bin/sh
  # Configuration validation subroutine script, version 1.1.
@@ -1744,9 +1744,9 @@ diff -ruN xdelta-1.1.1/config.sub xdelta-1.1.1.new/config.sub
 +# time-stamp-format: "%:y-%02m-%02d"
 +# time-stamp-end: "'"
 +# End:
-diff -ruN xdelta-1.1.1/libedsio/default.c xdelta-1.1.1.new/libedsio/default.c
---- xdelta-1.1.1/libedsio/default.c	Thu Apr  1 02:15:30 1999
-+++ xdelta-1.1.1.new/libedsio/default.c	Mon Oct 30 19:32:46 2000
+diff -ruN xdelta-1.1.1.orig/libedsio/default.c xdelta-1.1.1/libedsio/default.c
+--- xdelta-1.1.1.orig/libedsio/default.c	Tue Apr 10 18:08:13 2001
++++ xdelta-1.1.1/libedsio/default.c	Mon Oct 30 19:32:46 2000
 @@ -287,6 +287,12 @@
  
    if (! source->alloc_buf)
@@ -1760,9 +1760,9 @@ diff -ruN xdelta-1.1.1/libedsio/default.c xdelta-1.1.1.new/libedsio/default.c
        if (source->salloc_func)
  	source->alloc_buf_orig = source->salloc_func (source, source->alloc_total + 8);
        else
-diff -ruN xdelta-1.1.1/ltconfig xdelta-1.1.1.new/ltconfig
---- xdelta-1.1.1/ltconfig	Fri Apr  9 17:58:53 1999
-+++ xdelta-1.1.1.new/ltconfig	Mon Oct 23 14:09:02 2000
+diff -ruN xdelta-1.1.1.orig/ltconfig xdelta-1.1.1/ltconfig
+--- xdelta-1.1.1.orig/ltconfig	Tue Apr 10 18:08:13 2001
++++ xdelta-1.1.1/ltconfig	Mon Oct 23 14:09:02 2000
 @@ -2,7 +2,7 @@
  
  # ltconfig - Create a system-specific libtool.
@@ -3576,9 +3576,9 @@ diff -ruN xdelta-1.1.1/ltconfig xdelta-1.1.1.new/ltconfig
  
    chmod +x "$ofile"
    ;;
-diff -ruN xdelta-1.1.1/ltmain.sh xdelta-1.1.1.new/ltmain.sh
---- xdelta-1.1.1/ltmain.sh	Fri Apr  9 17:58:53 1999
-+++ xdelta-1.1.1.new/ltmain.sh	Mon Oct 23 14:09:02 2000
+diff -ruN xdelta-1.1.1.orig/ltmain.sh xdelta-1.1.1/ltmain.sh
+--- xdelta-1.1.1.orig/ltmain.sh	Tue Apr 10 18:08:13 2001
++++ xdelta-1.1.1/ltmain.sh	Mon Oct 23 14:09:02 2000
 @@ -2,7 +2,7 @@
  # NOTE: Changing this file will not affect anything until you rerun ltconfig.
  #
@@ -5027,3 +5027,26 @@ diff -ruN xdelta-1.1.1/ltmain.sh xdelta-1.1.1.new/ltmain.sh
  "Usage: $modename [OPTION]... --mode=uninstall RM [RM-OPTION]... FILE...
  
  Remove libraries from an installation directory.
+diff -ruN xdelta-1.1.1.orig/xdmain.c xdelta-1.1.1/xdmain.c
+--- xdelta-1.1.1.orig/xdmain.c	Fri Apr  9 17:56:00 1999
++++ xdelta-1.1.1/xdmain.c	Tue Apr 10 18:08:44 2001
+@@ -536,14 +536,15 @@
+       return FALSE;
+     }
+ 
+-  if (fread (buf, 2, 1, f) != 1)
+-    return TRUE;
++  if (fread (buf, 2, 1, f) == 1) {
+ 
+ #define GZIP_MAGIC1 037
+ #define GZIP_MAGIC2 0213
+ 
+-  if (buf[0] == GZIP_MAGIC1 && buf[1] == GZIP_MAGIC2)
+-    (* is_compressed) = TRUE;
++    if (buf[0] == GZIP_MAGIC1 && buf[1] == GZIP_MAGIC2)
++      (* is_compressed) = TRUE;
++  }
++  fclose(f);
+ 
+   return TRUE;
+ }
