@@ -38,9 +38,11 @@ size_t calculate_space(loki_patch *patch)
 size_t available_space(const char *path)
 {
     struct statfs sb;
+    unsigned long long avail;
 
     if ( statfs(path, &sb) < 0 ) {
         return 0;
     }
-    return (sb.f_bsize * sb.f_bavail) / 1024;
+    avail = sb.f_bsize * sb.f_bavail;
+    return  (size_t) (avail / 1024LL);
 }
