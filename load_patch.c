@@ -449,10 +449,7 @@ loki_patch *load_patch(const char *patchfile)
     /* Try to open the patch file */
     file = fopen(patchfile, "r");
     if ( ! file ) {
-        log(LOG_ERROR,
-    "The patch file must exist and contain a valid patch header:\n"
-    SAMPLE_HEADER
-        );
+        log(LOG_ERROR, "Unable to open patch file: %s\n", patchfile);
         free_patch(patch);
         return (loki_patch *)0;
     }
