@@ -1,13 +1,13 @@
 
+OS := $(shell uname -s)
+ARCH := $(shell sh print_arch)
+
 SETUPDB = ../setupdb
 CFLAGS = -g -Wall
 CFLAGS += -I$(SETUPDB)
 CFLAGS += $(shell xdelta-config --cflags) $(shell xml-config --cflags)
-LFLAGS += -L$(SETUPDB) -lsetupdb
+LFLAGS += -L$(SETUPDB)/$(ARCH) -lsetupdb
 LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -static
-
-OS := $(shell uname -s)
-ARCH := $(shell sh print_arch)
 
 SHARED_OBJS = load_patch.o size_patch.o loki_xdelta.o mkdirhier.o log_output.o
 
