@@ -17,6 +17,7 @@
 #include "loki_xdelta.h"
 #include "mkdirhier.h"
 #include "md5.h"
+#include "arch.h"
 #include "log_output.h"
 
 static void assemble_path(char *dest, const char *base, const char *path)
@@ -426,13 +427,19 @@ int apply_patch(loki_patch *patch, const char *dst)
     /* Second stage, set environment and run pre-patch script */
     { char env[2*PATH_MAX];
         /* Set the environment for the patch scripts */
-        sprintf(env, "product_name=%s", patch->product);
+        sprintf(env, "PATCH_PRODUCT=%s", patch->product);
         putenv(env);
-        sprintf(env, "product_desc=%s", patch->description);
+        sprintf(env, "PATCH_COMPONENT=%s", patch->component);
         putenv(env);
-        sprintf(env, "component=%s", patch->component);
+        sprintf(env, "PATCH_VERSION=%s", patch->version);
         putenv(env);
-        sprintf(env, "install_path=%s", dst);
+        sprintf(env, "PATCH_DESCRIPTION=%s", patch->description);
+        putenv(env);
+        sprintf(env, "PATCH_PATH=%s", dst);
+        putenv(env);
+        sprintf(env, "PATCH_OS=%s", detect_os());
+        putenv(env);
+        sprintf(env, "PATCH_ARCH=%s", detect_arch());
         putenv(env);
     }
     if ( patch->prepatch ) {
