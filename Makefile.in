@@ -2,7 +2,9 @@
 INSTALL_PATH := @prefix@
 OS := @OS@
 ARCH := @ARCH@
+DISTDIR = ..
 VERSION := @VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_RELEASE@
+PACKAGE = loki_patch-$(VERSION)
 
 
 SETUPDB = ../setupdb
@@ -56,6 +58,12 @@ clean: cleanpat
 distclean: clean
 	rm -f make_patch loki_patch
 	rm -f Makefile config.cache config.status config.log
+
+dist: distclean
+	cp -r . $(DISTDIR)/$(PACKAGE)
+	(cd $(DISTDIR)/$(PACKAGE) && rm -r `find . -name CVS`)
+	(cd $(DISTDIR) && tar zcvf $(PACKAGE).tar.gz $(PACKAGE))
+	rm -rf $(DISTDIR)/$(PACKAGE)
 
 cleanpat:
 	rm -rf test
