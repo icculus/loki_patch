@@ -133,6 +133,6 @@ loki_patch patch.dat $installed
 status=$?
 if [ "$status" = "0" ]; then
     echo ""
-    echo "Update complete."
+    echo "Product updated successfully."
 fi
 exit $status
