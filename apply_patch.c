@@ -107,8 +107,9 @@ static int apply_add_file(const char *base,
             return(-1);
         }
         disk_done += len;
-        log(LOG_NORMAL, " %0.0f%%\r",
-            ((((float)disk_done)/1024.0)/disk_used)*100.0);
+        log(LOG_NORMAL, " %0.0f%%%c",
+            ((((float)disk_done)/1024.0)/disk_used)*100.0,
+            get_logging() <= LOG_VERBOSE ? '\n' : '\r');
     }
     gzclose(src_zfp);
     if ( close(dst_fd) < 0 ) {
@@ -484,7 +485,9 @@ int apply_patch(loki_patch *patch, const char *dst)
             }
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
-                log(LOG_NORMAL," %0.0f%%\r",((float)disk_done/disk_used)*100.0);
+                log(LOG_NORMAL," %0.0f%%%c",
+                    ((float)disk_done/disk_used)*100.0,
+                    get_logging() <= LOG_VERBOSE ? '\n' : '\r');
             }
         }
     }
@@ -506,7 +509,9 @@ int apply_patch(loki_patch *patch, const char *dst)
             }
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
-                log(LOG_NORMAL," %0.0f%%\r",((float)disk_done/disk_used)*100.0);
+                log(LOG_NORMAL," %0.0f%%%c",
+                    ((float)disk_done/disk_used)*100.0,
+                    get_logging() <= LOG_VERBOSE ? '\n' : '\r');
             }
         }
     }
@@ -560,7 +565,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     }
 
     /* Yay!  The patch succeeded! */
-    log(LOG_NORMAL, " 100%%\r");
+    log(LOG_NORMAL, " 100%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
 
     return(0);
 }
