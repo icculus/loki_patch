@@ -53,6 +53,8 @@ static int apply_add_path(struct op_add_path *op, const char *dst)
         retval = mkdir(path, op->mode&0777);
         if ( retval < 0 ) {
             log(LOG_ERROR, "Unable to make path %s\n", path);
+        } else {
+            op->added = 1;
         }
     }
     return(retval);
@@ -95,15 +97,18 @@ static int apply_add_file(const char *base,
         gzclose(src_zfp);
         return(-1);
     }
+    op->added = 1;
 
     /* Copy the data */
+    disk_done *= 1024;
     while ( (len=gzread(src_zfp, data, sizeof(data))) > 0 ) {
         if ( write(dst_fd, data, len) != len ) {
             log(LOG_ERROR, "Failed writing to %s\n", dst_path);
             return(-1);
         }
         disk_done += len;
-        log(LOG_NORMAL," %0.0f%%\r",((float)disk_done/disk_used)*100.0);
+        log(LOG_NORMAL, " %0.0f%%\r",
+            ((((float)disk_done)/1024.0)/disk_used)*100.0);
     }
     gzclose(src_zfp);
     if ( close(dst_fd) < 0 ) {
@@ -137,6 +142,8 @@ static int apply_symlink_file(const char *base,
     retval = symlink(op->link, path);
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to create symlink %s\n", path);
+    } else {
+        op->added = 1;
     }
     return(retval);
 }
@@ -479,6 +486,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_add_path *op;
 
         for ( op = patch->add_path_list; op; op=op->next ) {
+            op->added = 0;
             if ( apply_add_path(op, dst) < 0 ) {
                 return(-1);
             }
@@ -487,6 +495,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_add_file *op;
 
         for ( op = patch->add_file_list; op; op=op->next ) {
+            op->added = 0;
             if (apply_add_file(patch->base, op, dst, disk_done, disk_used) < 0){
                 return(-1);
             }
@@ -499,6 +508,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_symlink_file *op;
 
         for ( op = patch->symlink_file_list; op; op=op->next ) {
+            op->added = 0;
             if ( apply_symlink_file(patch->base, op, dst) < 0 ) {
                 return(-1);
             }

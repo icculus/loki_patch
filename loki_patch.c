@@ -71,7 +71,9 @@ static void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            loki_register_file(install_option, op->dst, NULL);
+            if ( op->added ) {
+                loki_register_file(install_option, op->dst, NULL);
+            }
         }
     }
     { struct op_add_file *op;
@@ -83,7 +85,9 @@ static void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            loki_register_file(install_option, op->dst, op->sum);
+            if ( op->added ) {
+                loki_register_file(install_option, op->dst, op->sum);
+            }
         }
     }
     { struct op_symlink_file *op;
@@ -95,7 +99,9 @@ static void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            loki_register_file(install_option, op->dst, NULL);
+            if ( op->added ) {
+                loki_register_file(install_option, op->dst, NULL);
+            }
         }
     }
     { struct op_patch_file *op;
