@@ -61,7 +61,7 @@ static void update_registry(loki_patch *patch)
     }
     default_option = loki_getfirst_option(component);
 
-    /* Now update all the added, removed and patched files */
+    /* Now update all the added, symlinked, removed and patched files */
     { struct op_add_path *op;
         for ( op = patch->add_path_list; op; op=op->next ) {
             file_info = loki_findpath(op->dst, product);
@@ -70,7 +70,7 @@ static void update_registry(loki_patch *patch)
             } else {
                 install_option = default_option;
             }
-            loki_register_file(install_option, op->dst, 0);
+            loki_register_file(install_option, op->dst, NULL);
         }
     }
     { struct op_add_file *op;
@@ -82,6 +82,17 @@ static void update_registry(loki_patch *patch)
                 install_option = default_option;
             }
             loki_register_file(install_option, op->dst, op->sum);
+        }
+    }
+    { struct op_symlink_file *op;
+        for ( op = patch->symlink_file_list; op; op=op->next ) {
+            file_info = loki_findpath(op->dst, product);
+            if ( file_info ) {
+                install_option = loki_getoption_file(file_info);
+            } else {
+                install_option = default_option;
+            }
+            loki_register_file(install_option, op->dst, NULL);
         }
     }
     { struct op_patch_file *op;
@@ -110,6 +121,11 @@ static void update_registry(loki_patch *patch)
             }
         }
     }
+
+    /* Update the component version for this patch */
+    loki_setversion_component(component, patch->version);
+
+    /* We're done! */
     loki_closeproduct(product);
 }
 
