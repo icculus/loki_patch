@@ -59,6 +59,13 @@ else
     exit 1
 fi
 
+# See if we should prompt the user for anything
+prompt=yes
+if [ "$1" = "--noprompt" ]; then
+    prompt=no
+    shift
+fi
+
 # Get some information about the product
 product=`grep -i "Product:" patch.dat | sed 's/^[^:]*: //'`
 component=`grep -i "Component:" patch.dat | sed 's/^[^:]*: //'`
@@ -80,7 +87,7 @@ echo "Welcome to the $description"
 echo "============================================================="
 
 # See if the user wants to apply this patch
-if tty -s; then
+if tty -s && [ "$prompt" = "yes" ]; then
     # Show the user the README, if there is one available
     if [ -f README.txt ]; then
         echo ""
