@@ -1,6 +1,7 @@
 
-OS := $(shell uname -s)
-ARCH := $(shell sh print_arch)
+INSTALL_PATH := @prefix@
+OS := @OS@
+ARCH := @ARCH@
 
 SETUPDB = ../setupdb
 CFLAGS = -g -Wall
@@ -18,15 +19,13 @@ LOKI_PATCH_OBJS = loki_patch.o apply_patch.o registry.o
 
 ALL_OBJS = $(SHARED_OBJS) $(MAKE_PATCH_OBJS) $(LOKI_PATCH_OBJS)
 
-#MEM_DEBUG = -lefence
-
 all: make_patch loki_patch
 
 make_patch: $(MAKE_PATCH_OBJS) $(SHARED_OBJS)
-	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
+	$(CC) -o $@ $^ $(LFLAGS)
 
 loki_patch: $(LOKI_PATCH_OBJS) $(SHARED_OBJS)
-	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
+	$(CC) -o $@ $^ $(LFLAGS)
 
 test: all cleanpat
 	gzip -cd test.tar.gz | tar xf -
@@ -43,13 +42,17 @@ install: all
 	cp loki_patch image/bin/$(OS)/$(ARCH)/
 	strip image/bin/$(OS)/$(ARCH)/loki_patch
 	-brandelf -t $(OS) image/bin/$(OS)/$(ARCH)/loki_patch
-	cp image/bin/$(OS)/$(ARCH)/loki_patch /loki/patch-tools/image/bin/$(OS)/$(ARCH)/loki_patch
+	cp -v make_patch loki_patch $(INSTALL_PATH)/bin/
+	@if [ -d /loki/patch-tools/image ]; then \
+	    cp -av image/bin/$(OS)/$(ARCH)/loki_patch /loki/patch-tools/image/bin/$(OS)/$(ARCH)/loki_patch; \
+	fi
 
 clean: cleanpat
 	rm -f *.o core
 
 distclean: clean
 	rm -f make_patch loki_patch
+	rm -f Makefile config.cache
 
 cleanpat:
 	rm -rf test
