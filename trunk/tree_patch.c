@@ -24,6 +24,8 @@
  */
 static void remove_path(patch_op op, const char *dst, loki_patch *patch)
 {
+    char path[PATH_MAX];
+
     switch (op) {
         case OP_NONE: {
             remove_path(OP_ADD_PATH, dst, patch);
@@ -74,6 +76,8 @@ static void remove_path(patch_op op, const char *dst, loki_patch *patch)
                         patch->add_file_list = elem;
                     }
                     freeable->next = NULL;
+                    sprintf(path, "%s/%s", patch->base, freeable->src);
+                    unlink(path);
                     free_add_file(freeable);
                 } else {
                     prev = elem;
@@ -138,6 +142,8 @@ static void remove_path(patch_op op, const char *dst, loki_patch *patch)
             elem = patch->patch_file_list;
             while ( elem ) {
                 if ( strcmp(elem->dst, dst) == 0 ) {
+                    struct delta_option *here;
+
                     freeable = elem;
                     elem = elem->next;
                     if ( prev ) {
@@ -146,6 +152,10 @@ static void remove_path(patch_op op, const char *dst, loki_patch *patch)
                         patch->patch_file_list = elem;
                     }
                     freeable->next = NULL;
+                    for ( here=elem->options; here; here=here->next ) {
+                        sprintf(path, "%s/%s", patch->base, here->src);
+                        unlink(path);
+                    }
                     free_patch_file(freeable);
                 } else {
                     prev = elem;
@@ -301,6 +311,7 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
     /* See if the path is used by any other portion of the patch */
     remove_path(OP_ADD_FILE, dst, patch);
     remove_path(OP_SYMLINK_FILE, dst, patch);
+    remove_path(OP_PATCH_FILE, dst, patch);     /* add supercedes patch */
     if ( is_in_patch(OP_NONE, dst, patch) ) {
         log(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
@@ -531,6 +542,11 @@ int tree_patch_file(const char *o_path,
         return(-1);
     }
 
+    /* A previous add supercedes a new patch */
+    if ( is_in_patch(OP_ADD_FILE, dst, patch) ) {
+        return(0);
+    }
+
     /* See if we need to generate a delta */
     md5_compute(o_path, oldsum, 1);
     md5_compute(n_path, newsum, 1);
@@ -558,9 +574,9 @@ int tree_patch_file(const char *o_path,
 
     /* We can have multiple "PATCH FILE" entries, but no other kind */
     if ( is_in_patch(OP_ADD_PATH, dst, patch) ||
-         is_in_patch(OP_ADD_FILE, dst, patch) ||
          is_in_patch(OP_DEL_PATH, dst, patch) ||
-         is_in_patch(OP_DEL_FILE, dst, patch) ) {
+         is_in_patch(OP_DEL_FILE, dst, patch) ||
+         is_in_patch(OP_SYMLINK_FILE, dst, patch) ) {
         log(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
     }

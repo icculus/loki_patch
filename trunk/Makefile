@@ -27,9 +27,6 @@ make_patch: $(MAKE_PATCH_OBJS) $(SHARED_OBJS)
 loki_patch: $(LOKI_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
 
-$(SETUPDB)/brandelf:
-	$(MAKE) -C $(SETUPDB) brandelf
-
 test: all cleanpat
 	gzip -cd test.tar.gz | tar xf -
 	./make_patch test/patch/patch.dat load-file test/build-patch
@@ -39,12 +36,12 @@ test: all cleanpat
 	cp -rp test/bin-1.1a/* test/out/
 	(cd test/patch; ../../loki_patch -v patch.dat ../out)
 
-install: all $(SETUPDB)/brandelf
+install: all
 	if test ! -d image/bin/$(OS); then mkdir image/bin/$(OS); fi
 	if test ! -d image/bin/$(OS)/$(ARCH); then mkdir image/bin/$(OS)/$(ARCH); fi
 	cp loki_patch image/bin/$(OS)/$(ARCH)/
 	strip image/bin/$(OS)/$(ARCH)/loki_patch
-	$(SETUPDB)/brandelf -t $(OS) image/bin/$(OS)/$(ARCH)/loki_patch
+	-brandelf -t $(OS) image/bin/$(OS)/$(ARCH)/loki_patch
 	cp image/bin/$(OS)/$(ARCH)/loki_patch /loki/patch-tools/image/bin/$(OS)/$(ARCH)/loki_patch
 
 clean: cleanpat
