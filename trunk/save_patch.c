@@ -2,8 +2,10 @@
 #include <stdio.h>
 
 #include "loki_patch.h"
-#include "save_patch.h"
 #include "size_patch.h"
+#include "print_patch.h"
+#include "save_patch.h"
+
 
 int save_patch(loki_patch *patch, const char *patchfile)
 {
@@ -17,12 +19,7 @@ int save_patch(loki_patch *patch, const char *patchfile)
     }
 
     /* Print out the patch header */
-    fprintf(file, "Product: %s\n", patch->product);    
-    if ( patch->component ) {
-        fprintf(file, "Component: %s\n", patch->component);    
-    }
-    fprintf(file, "Version: %s\n", patch->version);    
-    fprintf(file, "Description: %s\n", patch->description);    
+    print_info(patch, file);
     if ( patch->prepatch ) {
         fprintf(file, "Prepatch: %s\n", patch->prepatch);    
     }

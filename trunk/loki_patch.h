@@ -1,9 +1,25 @@
 
+/* The number of bytes required to hold an MD5 checksum string */
+#include "md5.h"
+
 /* This is the patch version string */
 #define LOKI_VERSION    "LOKI_PATCH 1.0"
 
-/* The number of bytes required to hold an MD5 checksum string */
-#include "md5.h"
+#define SAMPLE_HEADER \
+"# This is the name of the product as listed in the installation registry\n" \
+"Product: product\n" \
+"# This is an optional component name, used for adding or patching add-ons\n" \
+"Component:\n" \
+"# This is the version of the product/component after patching\n" \
+"Version: 1.0\n" \
+"# This is a description of the patch, printed out at patch time\n" \
+"Description: Product 1.0 Update\n" \
+"# This is a command line run before the patch process\n" \
+"Prepatch: sh pre-patch.sh $PATCH_PRODUCT $PATCH_PATH\n" \
+"# This is a command line run after the patch process\n" \
+"Postpatch: sh post-patch.sh $PATCH_PRODUCT $PATCH_PATH\n" \
+"\n" \
+"%%" LOKI_VERSION " - Do not remove this line!\n"
 
 /* These are the operations that can be performed */
 
@@ -72,7 +88,11 @@ typedef struct loki_patch {
     char *product;          /* The product as named in install registry */
     char *component;        /* The component modified by this patch */
     char *version;          /* The component version of the patch */
-    char *description;      /* The text description of the patch */
+    struct optional_field { /* Untouched fields in the header */
+        char *key;
+        char *val;
+        struct optional_field *next;
+    } *optional_fields;
     char *prepatch;         /* Command to run before the patch is applied */
     char *postpatch;        /* Command to run after the patch is applied */
 

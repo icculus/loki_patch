@@ -9,11 +9,12 @@ CFLAGS += $(shell xdelta-config --cflags) $(shell xml-config --cflags)
 LFLAGS += -L$(SETUPDB)/$(ARCH) -lsetupdb
 LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -static
 
-SHARED_OBJS = load_patch.o size_patch.o loki_xdelta.o mkdirhier.o log_output.o
+SHARED_OBJS = load_patch.o size_patch.o print_patch.o loki_xdelta.o \
+              mkdirhier.o log_output.o
 
 MAKE_PATCH_OBJS = make_patch.o tree_patch.o save_patch.o
 
-LOKI_PATCH_OBJS = loki_patch.o apply_patch.o
+LOKI_PATCH_OBJS = loki_patch.o apply_patch.o registry.o
 
 ALL_OBJS = $(SHARED_OBJS) $(MAKE_PATCH_OBJS) $(LOKI_PATCH_OBJS)
 
