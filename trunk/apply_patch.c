@@ -326,7 +326,26 @@ int apply_patch(loki_patch *patch, const char *dst)
         return(-1);
     }
 
-    /* Second stage, apply deltas, create new paths, copy new files */
+    /* Second stage, set environment and run pre-patch script */
+    { char env[2*PATH_MAX];
+        /* Set the environment for the patch scripts */
+        sprintf(env, "product_name=%s", patch->product);
+        putenv(env);
+        sprintf(env, "product_desc=%s", patch->description);
+        putenv(env);
+        sprintf(env, "component=%s", patch->component);
+        putenv(env);
+        sprintf(env, "install_path=%s", dst);
+        putenv(env);
+    }
+    if ( patch->prepatch ) {
+        if ( system(patch->prepatch) != 0 ) {
+            log(LOG_ERROR, "Prepatch script returned non-zero status - Aborting\n");
+            return(-1);
+        }
+    }
+
+    /* Third stage, apply deltas, create new paths, copy new files */
     { struct op_patch_file *op;
 
         for ( op = patch->patch_file_list; op; op=op->next ) {
@@ -389,6 +408,13 @@ int apply_patch(loki_patch *patch, const char *dst)
         for ( op = patch->del_path_list; op; op=op->next ) {
             /* This is non-fatal */
             apply_del_path(op, dst);
+        }
+    }
+
+    /* Final stage, run post-patch script */
+    if ( patch->postpatch ) {
+        if ( system(patch->postpatch) != 0 ) {
+            log(LOG_WARNING, "Postpatch script returned non-zero status\n");
         }
     }
 

@@ -74,26 +74,10 @@ else
     exit 1
 fi
 
-# Pre-patch script?
-if [ -f pre-patch.sh ]; then
-    if sh pre-patch.sh; then
-        :
-    else
-        exit 2
-    fi
-fi
 # Run the patch program
 if loki_patch patch.dat $*; then
     :
 else
     exit 3
-fi
-# Post-patch script?
-if [ -f post-patch.sh ]; then
-    if sh post-patch.sh; then
-        :
-    else
-        exit 4
-    fi
 fi
 exit 0

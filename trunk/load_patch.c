@@ -8,13 +8,22 @@
 #include "load_patch.h"
 #include "log_output.h"
 
-#define SAMPLE_HEADER                       \
-    "Product: PRODUCT\n"                    \
-    "Component: \n"                         \
-    "Version: VERSION\n"                    \
-    "Description: PATCH_DESCRIPTION\n"      \
-    "\n"                                    \
-    "%" LOKI_VERSION " - Do not remove this line!\n"
+#define SAMPLE_HEADER \
+"# This is the name of the product as listed in the installation registry\n" \
+"Product: product\n" \
+"# This is an optional component name, used for adding or patching add-ons\n" \
+"Component:\n" \
+"# This is the version of the product/component after patching\n" \
+"Version: 1.0\n" \
+"# This is a description of the patch, printed out at patch time\n" \
+"Description: Product Patch\n" \
+"# This is a command line run before the patch process\n" \
+"Prepatch: sh pre-patch.sh $product_name $install_path\n" \
+"# This is a command line run after the patch process\n" \
+"Postpatch: sh post-patch.sh $product_name $install_path\n" \
+"\n" \
+"%" LOKI_VERSION " - Do not remove this line!\n"
+
 #define BASE "data"
 
 
@@ -511,6 +520,12 @@ loki_patch *load_patch(const char *patchfile)
         } else
         if ( strcasecmp(line, "Description") == 0 ) {
             patch->description = strdup(token);
+        } else
+        if ( strcasecmp(line, "Prepatch") == 0 ) {
+            patch->prepatch = strdup(token);
+        } else
+        if ( strcasecmp(line, "Postpatch") == 0 ) {
+            patch->postpatch = strdup(token);
         } else {
             log(LOG_ERROR, "%s:%d Unknown header token: %s\n",
                     patchfile, line_num, line);
@@ -661,6 +676,12 @@ void free_patch(loki_patch *patch)
         }
         if ( patch->description ) {
             free(patch->description);
+        }
+        if ( patch->prepatch ) {
+            free(patch->prepatch);
+        }
+        if ( patch->postpatch ) {
+            free(patch->postpatch);
         }
         free_add_path(patch->add_path_list);
         free_add_file(patch->add_file_list);
