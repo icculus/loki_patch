@@ -43,6 +43,21 @@ size_t available_space(const char *path)
     if ( statfs(path, &sb) < 0 ) {
         return 0;
     }
-    avail = sb.f_bsize * sb.f_bavail;
+    avail = sb.f_bsize;
+    avail *= sb.f_bavail;
     return  (size_t) (avail / 1024LL);
 }
+
+#ifdef TEST_MAIN
+
+int main(int argc, char *argv[])
+{
+    const char *path;
+
+    path = argv[1];
+    if ( path ) {
+        printf("%ld K available on %s\n", available_space(path), path);
+    }
+}
+
+#endif /* TEST_MAIN */
