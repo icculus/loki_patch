@@ -13,7 +13,7 @@ CFLAGS += -I$(SETUPDB)
 CFLAGS += $(shell xdelta-config --cflags) $(shell xml-config --cflags)
 CFLAGS += -DVERSION=\"$(VERSION)\"
 LFLAGS += -L$(SETUPDB)/$(ARCH) -lsetupdb
-LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -static
+LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -lz -static
 
 SHARED_OBJS = load_patch.o size_patch.o print_patch.o loki_xdelta.o \
               mkdirhier.o log_output.o
