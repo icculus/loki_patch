@@ -53,6 +53,7 @@ struct op_patch_file {
     } *options;
     long mode;
     long size;
+    int optional;
     struct op_patch_file *next;
 };
 

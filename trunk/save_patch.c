@@ -70,6 +70,7 @@ int save_patch(loki_patch *patch, const char *patchfile)
             }
             fprintf(file, "mode=0%lo\n", op->mode);
             fprintf(file, "size=%ld\n", op->size);
+            fprintf(file, "optional=%d\n", op->optional);
             fprintf(file, "\n");
         }
     }

@@ -46,6 +46,7 @@ install:
 	if test ! -d image/bin/$(OS)/$(ARCH); then mkdir image/bin/$(OS)/$(ARCH); fi
 	cp loki_patch image/bin/$(OS)/$(ARCH)/
 	strip image/bin/$(OS)/$(ARCH)/loki_patch
+	cp image/bin/$(OS)/$(ARCH)/loki_patch /loki/patch-tools/image/bin/$(OS)/$(ARCH)/loki_patch
 
 clean: cleanpat
 	rm -f *.o core

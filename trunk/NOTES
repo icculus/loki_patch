@@ -33,6 +33,7 @@ newsum = YYY
 .
 mode =
 size =
+optional = {0,1}
 
 SYMLINK FILE dst
 link = 

@@ -272,6 +272,9 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
         } else
         if ( strcmp(key, "size") == 0 ) {
             op->size = strtol(value, 0, 0);
+        } else
+        if ( strcmp(key, "optional") == 0 ) {
+            op->optional = strtol(value, 0, 0);
         } else {
             log(LOG_ERROR, "Unknown PATCH FILE key %d: %s\n", *line_num, key);
             return(-1);
