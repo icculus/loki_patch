@@ -55,7 +55,7 @@ clean: cleanpat
 
 distclean: clean
 	rm -f make_patch loki_patch
-	rm -f Makefile config.cache
+	rm -f Makefile config.cache config.status
 
 cleanpat:
 	rm -rf test
