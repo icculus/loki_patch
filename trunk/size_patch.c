@@ -50,15 +50,23 @@ size_t patch_size(loki_patch *patch)
 }
 
 /* Calculate the maximum disk space required for patch */
-size_t calculate_space(loki_patch *patch)
+size_t calculate_space(loki_patch *patch, int unsafe)
 {
+    size_t size;
     size_t used = 0;
 
     /* First check the space used by new files */
     { struct op_add_file *op;
 
         for ( op = patch->add_file_list; op; op=op->next ) {
-            used += (op->size + 1023)/1024;
+            size = (op->size + 1023)/1024;
+            if ( unsafe ) {
+                if ( size > used ) {
+                    used = size;
+                }
+            } else {
+                used += size;
+            }
         }
     }
 
@@ -66,7 +74,14 @@ size_t calculate_space(loki_patch *patch)
     { struct op_patch_file *op;
 
         for ( op = patch->patch_file_list; op; op=op->next ) {
-            used += (op->size + 1023)/1024;
+            size = (op->size + 1023)/1024;
+            if ( unsafe ) {
+                if ( size > used ) {
+                    used = size;
+                }
+            } else {
+                used += size;
+            }
         }
     }
 

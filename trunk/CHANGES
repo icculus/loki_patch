@@ -1,4 +1,10 @@
 1.0.2:
+Sam Lantinga - Tue Apr 10 20:55:44 PDT 2001
+ * Added an environment variable LOKI_PATCH_UNSAFE
+   - If this is set to "1", then it will use less diskspace for patches,
+     but if a patch fails, it will corrupt your installation.
+   - If this is set to "2", then not enough diskspace is not fatal.
+   - If this is set to "3", then most errors will not stop the patch.
 Sam Lantinga - Tue Apr 10 20:17:01 PDT 2001
  * Fixed out of memory condition caused by not properly unmapping files
 
