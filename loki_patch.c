@@ -67,6 +67,7 @@ static void update_registry(loki_patch *patch)
             file_info = loki_findpath(op->dst, product);
             if ( file_info ) {
                 install_option = loki_getoption_file(file_info);
+                loki_unregister_path(install_option, op->dst);
             } else {
                 install_option = default_option;
             }
@@ -78,6 +79,7 @@ static void update_registry(loki_patch *patch)
             file_info = loki_findpath(op->dst, product);
             if ( file_info ) {
                 install_option = loki_getoption_file(file_info);
+                loki_unregister_path(install_option, op->dst);
             } else {
                 install_option = default_option;
             }
@@ -89,6 +91,7 @@ static void update_registry(loki_patch *patch)
             file_info = loki_findpath(op->dst, product);
             if ( file_info ) {
                 install_option = loki_getoption_file(file_info);
+                loki_unregister_path(install_option, op->dst);
             } else {
                 install_option = default_option;
             }
