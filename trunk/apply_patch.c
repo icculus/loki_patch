@@ -9,6 +9,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+#include <zlib.h>
+
 #include "loki_patch.h"
 #include "apply_patch.h"
 #include "size_patch.h"
@@ -47,7 +49,8 @@ static int apply_add_file(const char *base,
 {
     char src_path[PATH_MAX];
     char dst_path[PATH_MAX];
-    int src_fd, dst_fd;
+    gzFile src_zfp;
+    int dst_fd;
     int len;
     char data[4096];
     char csum[CHECKSUM_SIZE+1];
@@ -56,8 +59,8 @@ static int apply_add_file(const char *base,
 
     /* Open the source and destination files */
     sprintf(src_path, "%s/%s", base, op->dst);
-    src_fd = open(src_path, O_RDONLY);
-    if ( src_fd < 0 ) {
+    src_zfp = gzopen(src_path, "rb");
+    if ( src_zfp == NULL ) {
         log(LOG_ERROR, "Unable to open %s\n", src_path);
         return(-1);
     }
@@ -67,24 +70,25 @@ static int apply_add_file(const char *base,
         sprintf(dst_path, "%s/%s.new", dst, op->dst);
     }
     if ( mkdirhier(dst_path) < 0 ) {
+        gzclose(src_zfp);
         return(-1);
     }
     unlink(dst_path);
     dst_fd = open(dst_path, O_WRONLY|O_CREAT|O_EXCL, op->mode);
     if ( dst_fd < 0 ) {
         log(LOG_ERROR, "Unable to open %s\n", dst_path);
-        close(src_fd);
+        gzclose(src_zfp);
         return(-1);
     }
 
     /* Copy the data */
-    while ( (len=read(src_fd, data, sizeof(data))) > 0 ) {
+    while ( (len=gzread(src_zfp, data, sizeof(data))) > 0 ) {
         if ( write(dst_fd, data, len) != len ) {
             log(LOG_ERROR, "Failed writing to %s\n", dst_path);
             return(-1);
         }
     }
-    close(src_fd);
+    gzclose(src_zfp);
     if ( close(dst_fd) < 0 ) {
         log(LOG_ERROR, "Failed writing to %s\n", dst_path);
         return(-1);
