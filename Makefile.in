@@ -7,7 +7,7 @@ VERSION := @VERSION_MAJOR@.@VERSION_MINOR@.@VERSION_RELEASE@
 PACKAGE = loki_patch-$(VERSION)
 
 
-SETUPDB = ../setupdb
+SETUPDB = ../loki_setupdb
 CFLAGS = -g -Wall
 CFLAGS += -I$(SETUPDB)
 CFLAGS += $(shell xdelta-config --cflags) $(shell xml-config --cflags)
