@@ -19,7 +19,7 @@ ALL_OBJS = $(SHARED_OBJS) $(MAKE_PATCH_OBJS) $(LOKI_PATCH_OBJS)
 
 #MEM_DEBUG = -lefence
 
-all: make_patch loki_patch
+all: $(SETUPDB)/brandelf make_patch loki_patch
 
 make_patch: $(MAKE_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
