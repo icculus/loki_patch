@@ -551,7 +551,17 @@ int tree_patch_file(const char *o_path,
     md5_compute(o_path, oldsum, 1);
     md5_compute(n_path, newsum, 1);
     if ( strcmp(oldsum, newsum) == 0 ) {
-        /* They are the same file */
+        struct op_patch_file *elem;
+        /* They are the same file - if there is already a delta for this,
+           then it becomes an optional delta, since we may be applying a
+           patch to both this file and the other, different, file.
+         */
+        for ( elem = patch->patch_file_list; elem; elem = elem->next ) {
+            if ( strcmp(elem->dst, dst) == 0 ) {
+                elem->optional = 1;
+                break;
+            }
+        }
         return(0);
     }
 
