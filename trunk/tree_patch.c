@@ -360,6 +360,7 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
 
 int tree_add_path(const char *path, const char *dst, loki_patch *patch)
 {
+    int is_toplevel;
     struct op_add_path *op;
     char child_path[PATH_MAX];
     char child_dst[PATH_MAX];
@@ -367,20 +368,20 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
     DIR *dir;
     struct dirent *entry;
 
-    log(LOG_VERBOSE, "-> ADD PATH %s\n", dst);
+    /* See if we're adding to the toplevel directory */
+    is_toplevel = (!dst || !*dst || (strcmp(dst, ".") == 0));
 
-    /* See if the path is used by any other portion of the patch */
-    remove_path(OP_ADD_PATH, dst, patch);
-    if ( is_in_patch(OP_NONE, dst, patch) ) {
-        log(LOG_ERROR, "Path %s is already in patch\n", dst);
-        return(-1);
+    if ( ! is_toplevel ) {
+        log(LOG_VERBOSE, "-> ADD PATH %s\n", dst);
     }
 
-    /* Allocate memory for the operation */
-    op = (struct op_add_path *)malloc(sizeof *op);
-    if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
-        return(-1);
+    /* See if the path is used by any other portion of the patch */
+    if ( ! is_toplevel ) {
+        remove_path(OP_ADD_PATH, dst, patch);
+        if ( is_in_patch(OP_NONE, dst, patch) ) {
+            log(LOG_ERROR, "Path %s is already in patch\n", dst);
+            return(-1);
+        }
     }
 
     /* Get the mode information for the path */
@@ -390,22 +391,31 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
         return(-1);
     }
 
-    /* Put it all together now */
-    op->dst = strdup(dst);
-    op->mode = sb.st_mode;
-    if ( patch->add_path_list ) {
-        struct op_add_path *here;
-        /* Insert the directory at the end of the list, so that
-           directories are created in the correct order.
-         */
-        for ( here=patch->add_path_list; here->next; here=here->next )
-            ;
-        op->next = here->next;
-        here->next = op;
-    } else {
-        patch->add_path_list = op;
+    if ( ! is_toplevel ) {
+        /* Allocate memory for the operation */
+        op = (struct op_add_path *)malloc(sizeof *op);
+        if ( ! op ) {
+            log(LOG_ERROR, "Out of memory\n");
+            return(-1);
+        }
+
+        /* Put it all together now */
+        op->dst = strdup(dst);
+        op->mode = sb.st_mode;
+        if ( patch->add_path_list ) {
+            struct op_add_path *here;
+            /* Insert the directory at the end of the list, so that
+               directories are created in the correct order.
+             */
+            for ( here=patch->add_path_list; here->next; here=here->next )
+                ;
+            op->next = here->next;
+            here->next = op;
+        } else {
+            patch->add_path_list = op;
+        }
+        op->next = (struct op_add_path *)0;
     }
-    op->next = (struct op_add_path *)0;
 
     /* Now add everything in the path */
     dir = opendir(path);
@@ -422,7 +432,11 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
 
         /* Add the child path */
         sprintf(child_path, "%s/%s", path, entry->d_name);
-        sprintf(child_dst, "%s/%s", dst, entry->d_name);
+        if ( is_toplevel ) {
+            strcpy(child_dst, entry->d_name);
+        } else {
+            sprintf(child_dst, "%s/%s", dst, entry->d_name);
+        }
         if ( stat(child_path, &sb) < 0 ) {
             log(LOG_ERROR, "Unable to stat %s\n", child_path);
             return(-1);
@@ -866,4 +880,51 @@ int tree_patch(const char *o_top, const char *o_path,
 
     /* We're done! */
     return (0);
+}
+
+/* Add a set of files and directories from a UNIX tar file
+   This is an easy hack - just extract the directory and add it
+ */
+int tree_tarfile(const char *tarfile, loki_patch *patch)
+{
+    static const char gzip_magic[2] = { 0037, 0213 };
+    FILE *fp;
+    char magic[2];
+    int is_compressed;
+    char tmppath[PATH_MAX];
+    char command[4*PATH_MAX];
+    int retval;
+
+    /* Make sure we can read the tarfile */
+    fp = fopen(tarfile, "rb");
+    if ( ! fp ) {
+        log(LOG_ERROR, "Unable to read %s\n", tarfile);
+        return(-1);
+    }
+    if ( fread(magic, sizeof(magic), 1, fp) &&
+         (memcmp(magic, gzip_magic, sizeof(magic)) == 0) ) {
+        is_compressed = 1;
+    } else {
+        is_compressed = 0;
+    }
+    fclose(fp);
+
+    /* Extract the tarfile to the temporary directory */
+    sprintf(tmppath, "%s/../tmp", patch->base);
+    sprintf(command, "rm -rf %s", tmppath);
+    system(command);
+    sprintf(command, "mkdir %s", tmppath);
+    if ( system(command) != 0 ) {
+        return(-1);
+    }
+    sprintf(command, "tar %sxpf %s -C %s", is_compressed ? "z" : "",
+                                           tarfile, tmppath);
+    if ( system(command) == 0 ) {
+        /* Add the contents of the temporary directory */
+        retval = tree_add_path(tmppath, NULL, patch);
+    }
+    sprintf(command, "rm -rf %s", tmppath);
+    system(command);
+
+    return(retval);
 }

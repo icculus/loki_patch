@@ -31,15 +31,28 @@ static void assemble_path(char *dest, const char *base, const char *path)
 static int apply_add_path(struct op_add_path *op, const char *dst)
 {
     char path[PATH_MAX];
+    struct stat sb;
     int retval;
 
     log(LOG_VERBOSE, "-> ADD PATH %s\n", op->dst);
 
-    /* Create a directory, easy */
+    /* Create a directory, if it doesn't already exist */
     assemble_path(path, dst, op->dst);
-    retval = mkdir(path, op->mode&0777);
-    if ( retval < 0 ) {
-        log(LOG_ERROR, "Unable to make path %s\n", path);
+    retval = 0;
+    if ( stat(path, &sb) == 0 ) {
+        if ( S_ISDIR(sb.st_mode) ) {
+            if ( (sb.st_mode&0777) != (op->mode&0777) ) {
+                retval = chmod(path, op->mode&0777);
+            }
+        } else {
+            log(LOG_ERROR, "Path exists, and isn't directory: %s\n", path);
+            retval = -1;
+        }
+    } else {
+        retval = mkdir(path, op->mode&0777);
+        if ( retval < 0 ) {
+            log(LOG_ERROR, "Unable to make path %s\n", path);
+        }
     }
     return(retval);
 }

@@ -9,3 +9,4 @@ extern int tree_patch_file(const char *o_path, const char *n_path,
 extern int tree_symlink_file(const char *link, const char *dst, loki_patch *patch);
 extern int tree_del_path(const char *dst, loki_patch *patch);
 extern int tree_del_file(const char *dst, loki_patch *patch);
+extern int tree_tarfile(const char *tarfile, loki_patch *patch);

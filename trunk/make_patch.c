@@ -17,6 +17,7 @@ static void print_usage(const char *argv0)
 "Where command and arguments are one of:\n"
 "   delta-install old-tree1 [old-tree2] [old-tree3] new-tree\n"
 "   delta-file old-file new-file installed-name\n"
+"   add-tarfile tar-archive\n"
 "   add-path new-path installed-name\n"
 "   add-file new-file installed-name\n"
 "   symlink-file link installed-name\n"
@@ -104,6 +105,15 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             return(-1);
         }
         return tree_patch_file(args[1], args[2], args[3], patch);
+    }
+
+    if ( strcmp(args[0], "add-tarfile") == 0 ) {
+        if ( argc != 2 ) {
+            fprintf(stderr, "add-tarfile requires an argument\n");
+            print_usage(argv0);
+            return(-1);
+        }
+        return tree_tarfile(args[1], patch);
     }
 
     if ( strcmp(args[0], "add-path") == 0 ) {
