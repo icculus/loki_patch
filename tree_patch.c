@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "loki_patch.h"
+#include "load_patch.h"
 #include "tree_patch.h"
 #include "loki_xdelta.h"
 #include "mkdirhier.h"
@@ -17,8 +18,169 @@
 #include "log_output.h"
 
 
+/* Remove a path from the specified portion of the patch
+ */
+static void remove_path(patch_op op, const char *dst, loki_patch *patch)
+{
+    switch (op) {
+        case OP_NONE: {
+            remove_path(OP_ADD_PATH, dst, patch);
+            remove_path(OP_ADD_FILE, dst, patch);
+            remove_path(OP_DEL_PATH, dst, patch);
+            remove_path(OP_DEL_FILE, dst, patch);
+            remove_path(OP_PATCH_FILE, dst, patch);
+            remove_path(OP_SYMLINK_FILE, dst, patch);
+        }
+        break;
+
+        case OP_ADD_PATH: {
+            struct op_add_path *elem, *prev, *freeable;
+
+            prev = NULL;
+            elem = patch->add_path_list;
+            while ( elem ) {
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    freeable = elem;
+                    elem = elem->next;
+                    if ( prev ) {
+                        prev->next = elem;
+                    } else {
+                        patch->add_path_list = elem;
+                    }
+                    freeable->next = NULL;
+                    free_add_path(freeable);
+                } else {
+                    prev = elem;
+                    elem = elem->next;
+                }
+            }
+        }
+        break;
+        
+        case OP_ADD_FILE: {
+            struct op_add_file *elem, *prev, *freeable;
+
+            prev = NULL;
+            elem = patch->add_file_list;
+            while ( elem ) {
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    freeable = elem;
+                    elem = elem->next;
+                    if ( prev ) {
+                        prev->next = elem;
+                    } else {
+                        patch->add_file_list = elem;
+                    }
+                    freeable->next = NULL;
+                    free_add_file(freeable);
+                } else {
+                    prev = elem;
+                    elem = elem->next;
+                }
+            }
+        }
+        break;
+
+        case OP_DEL_PATH: {
+            struct op_del_path *elem, *prev, *freeable;
+
+            prev = NULL;
+            elem = patch->del_path_list;
+            while ( elem ) {
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    freeable = elem;
+                    elem = elem->next;
+                    if ( prev ) {
+                        prev->next = elem;
+                    } else {
+                        patch->del_path_list = elem;
+                    }
+                    freeable->next = NULL;
+                    free_del_path(freeable);
+                } else {
+                    prev = elem;
+                    elem = elem->next;
+                }
+            }
+        }
+        break;
+        
+        case OP_DEL_FILE: {
+            struct op_del_file *elem, *prev, *freeable;
+
+            prev = NULL;
+            elem = patch->del_file_list;
+            while ( elem ) {
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    freeable = elem;
+                    elem = elem->next;
+                    if ( prev ) {
+                        prev->next = elem;
+                    } else {
+                        patch->del_file_list = elem;
+                    }
+                    freeable->next = NULL;
+                    free_del_file(freeable);
+                } else {
+                    prev = elem;
+                    elem = elem->next;
+                }
+            }
+        }
+        break;
+        
+        case OP_PATCH_FILE: {
+            struct op_patch_file *elem, *prev, *freeable;
+
+            prev = NULL;
+            elem = patch->patch_file_list;
+            while ( elem ) {
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    freeable = elem;
+                    elem = elem->next;
+                    if ( prev ) {
+                        prev->next = elem;
+                    } else {
+                        patch->patch_file_list = elem;
+                    }
+                    freeable->next = NULL;
+                    free_patch_file(freeable);
+                } else {
+                    prev = elem;
+                    elem = elem->next;
+                }
+            }
+        }
+        break;
+        
+        case OP_SYMLINK_FILE: {
+            struct op_symlink_file *elem, *prev, *freeable;
+
+            prev = NULL;
+            elem = patch->symlink_file_list;
+            while ( elem ) {
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    freeable = elem;
+                    elem = elem->next;
+                    if ( prev ) {
+                        prev->next = elem;
+                    } else {
+                        patch->symlink_file_list = elem;
+                    }
+                    freeable->next = NULL;
+                    free_symlink_file(freeable);
+                } else {
+                    prev = elem;
+                    elem = elem->next;
+                }
+            }
+        }
+        break;
+    }
+}
+
 /* See if a path is already in the patch list for the specified operation
-*/
+ */
 static int is_in_patch(patch_op op, const char *dst, loki_patch *patch)
 {
     int in_patch;
@@ -31,6 +193,7 @@ static int is_in_patch(patch_op op, const char *dst, loki_patch *patch)
             in_patch += is_in_patch(OP_DEL_PATH, dst, patch);
             in_patch += is_in_patch(OP_DEL_FILE, dst, patch);
             in_patch += is_in_patch(OP_PATCH_FILE, dst, patch);
+            in_patch += is_in_patch(OP_SYMLINK_FILE, dst, patch);
         }
         break;
 
@@ -132,6 +295,9 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
 
     log(LOG_VERBOSE, "-> ADD FILE %s\n", dst);
 
+    /* See if the path is used by any other portion of the patch */
+    remove_path(OP_ADD_FILE, dst, patch);
+    remove_path(OP_SYMLINK_FILE, dst, patch);
     if ( is_in_patch(OP_NONE, dst, patch) ) {
         log(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
@@ -187,6 +353,8 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
 
     log(LOG_VERBOSE, "-> ADD PATH %s\n", dst);
 
+    /* See if the path is used by any other portion of the patch */
+    remove_path(OP_ADD_PATH, dst, patch);
     if ( is_in_patch(OP_NONE, dst, patch) ) {
         log(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
@@ -341,6 +509,21 @@ int tree_patch_file(const char *o_path,
         return(0);
     }
 
+    /* See if we already have this delta in our patch */
+    for ( op = patch->patch_file_list; op; op=op->next ) {
+        if ( strcmp(op->dst, dst) == 0 ) {
+            struct delta_option *here;
+
+            for ( here=op->options; here; here=here->next ) {
+                if ( (strcmp(here->oldsum, oldsum) == 0) &&
+                     (strcmp(here->newsum, newsum) == 0) ) {
+                    /* This delta is already in the patch, oh well.. */
+                    return(0);
+                }
+            }
+        }
+    }
+
     log(LOG_VERBOSE, "-> PATCH FILE %s\n", dst);
 
     /* We can have multiple "PATCH FILE" entries, but no other kind */
@@ -427,6 +610,9 @@ int tree_symlink_file(const char *link, const char *dst, loki_patch *patch)
 
     log(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", dst, link);
 
+    /* See if the path is used by any other portion of the patch */
+    remove_path(OP_ADD_FILE, dst, patch);
+    remove_path(OP_SYMLINK_FILE, dst, patch);
     if ( is_in_patch(OP_NONE, dst, patch) ) {
         log(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
@@ -457,6 +643,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
     log(LOG_VERBOSE, "-> DEL PATH %s\n", dst);
 
     /* Need to make sure that this path isn't part of any of the path */
+    remove_path(OP_DEL_PATH, dst, patch);
     sprintf(path, "%s/", dst);
     pathlen = strlen(path);
     {
@@ -479,18 +666,6 @@ int tree_del_path(const char *dst, loki_patch *patch)
                  (strncmp(elem->dst, path, pathlen) == 0) ) {
                 log(LOG_ERROR,
 "Can't delete path %s, used by ADD FILE %s\n", dst, elem->dst);
-                return(-1);
-            }
-        }
-    }
-    {
-        struct op_del_path *elem;
-
-        for (elem=patch->del_path_list; elem; elem=elem->next){
-            if ( (strcmp(elem->dst, dst) == 0) ||
-                 (strncmp(elem->dst, path, pathlen) == 0) ) {
-                log(LOG_ERROR,
-"Can't delete path %s, used by DEL PATH %s\n", dst, elem->dst);
                 return(-1);
             }
         }
@@ -541,6 +716,8 @@ int tree_del_file(const char *dst, loki_patch *patch)
 
     log(LOG_VERBOSE, "-> DEL FILE %s\n", dst);
 
+    /* See if the path is used by any other portion of the patch */
+    remove_path(OP_DEL_FILE, dst, patch);
     if ( is_in_patch(OP_NONE, dst, patch) ) {
         log(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
