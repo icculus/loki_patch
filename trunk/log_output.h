@@ -1,6 +1,6 @@
 
 enum {
-    LOG_DEBUG,
+    LOG_DEBUG = 0,
     LOG_VERBOSE,
     LOG_NORMAL,
     LOG_WARNING,
