@@ -252,8 +252,8 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
         sprintf(o_path, "%s/%s.new", dst, op->dst);
         sprintf(n_path, "%s/%s", dst, op->dst);
     }
-    if ( stat(n_path, &sb) < 0 ) {
-        if ( op->optional )  {
+    if ( op->optional ) {
+        if ( (stat(o_path, &sb) < 0) || (stat(n_path, &sb) < 0) ) {
             return(0);
         }
     }
