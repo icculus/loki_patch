@@ -23,12 +23,14 @@ struct op_add_file {
     char  sum[CHECKSUM_SIZE+1];
     long  mode;
     long  size;
+    int   added;
     struct op_add_file *next;
 };
 
 struct op_add_path {
     char *dst;
     long  mode;
+    int   added;
     struct op_add_path *next;
 };
 
@@ -60,6 +62,7 @@ struct op_patch_file {
 struct op_symlink_file {
     char *dst;
     char *link;
+    int   added;
     struct op_symlink_file *next;
 };
 
