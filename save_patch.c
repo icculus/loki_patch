@@ -26,7 +26,7 @@ int save_patch(loki_patch *patch, const char *patchfile)
     if ( patch->postpatch ) {
         fprintf(file, "Postpatch: %s\n", patch->postpatch);    
     }
-    fprintf(file, "# Diskspace required: %u K\n", calculate_space(patch));
+    fprintf(file, "# Diskspace required: %u K\n", calculate_space(patch, 0));
     fprintf(file, "\n");
     fprintf(file, "%%" LOKI_VERSION " - Do not remove this line!\n");
     fprintf(file, "\n");

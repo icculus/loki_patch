@@ -99,7 +99,6 @@ static int apply_add_file(const char *base,
     } else {
         fchmod(dst_fd, (op->mode&01777)|0200);
     }
-    op->performed = 1;
 
     /* Copy the data */
     disk_done *= 1024;
@@ -125,6 +124,8 @@ static int apply_add_file(const char *base,
         log(LOG_ERROR, "Failed checksum: %s\n", dst_path);
         return(-1);
     }
+    op->performed = 1;
+
     return(0);
 }
 
@@ -427,6 +428,7 @@ static int chmod_directory(const char *path)
 
 int apply_patch(loki_patch *patch, const char *dst)
 {
+    int unsafe = 0;
     size_t disk_done;
     size_t disk_used;
     size_t disk_free;
@@ -438,14 +440,30 @@ int apply_patch(loki_patch *patch, const char *dst)
         return(-1);
     }
 
+    /* Add an environment variable to allow unsafe patching in a
+       smaller amount of disk space.  In the future, higher levels
+       may allow even more unsafe behavior.
+    */
+    { char *variable = getenv("LOKI_PATCH_UNSAFE");
+        if ( variable ) {
+            unsafe = atoi(variable);
+        }
+    }
+
     disk_done = 0;
-    disk_used = calculate_space(patch);
+    disk_used = calculate_space(patch, unsafe);
     disk_free = available_space(dst);
     if ( disk_used > disk_free ) {
-        log(LOG_ERROR,
-        "Not enough diskspace available, %uMB needed, %uMB free\n",
-                (disk_used+1023)/1024, disk_free/1024);
-        return(-1);
+        if ( unsafe < 2 ) {
+            log(LOG_ERROR,
+            "Not enough diskspace available, %uMB needed, %uMB free\n",
+                    (disk_used+1023)/1024, disk_free/1024);
+            return(-1);
+        } else {
+            log(LOG_WARNING,
+            "Not enough diskspace available, %uMB needed, %uMB free\n",
+                    (disk_used+1023)/1024, disk_free/1024);
+        }
     }
 
     /* Second stage, set environment and run pre-patch script */
@@ -490,18 +508,44 @@ int apply_patch(loki_patch *patch, const char *dst)
     log(LOG_NORMAL, " 0%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
 
     /* Third stage, apply deltas, create new paths, copy new files */
+    if ( unsafe ) {
+        { struct op_del_file *op;
+    
+            for ( op = patch->del_file_list; op; op=op->next ) {
+                /* This is non-fatal */
+                apply_del_file(op, dst, &patch->removed_paths);
+            }
+        }
+        { struct op_del_path *op;
+    
+            for ( op = patch->del_path_list; op; op=op->next ) {
+                /* This is non-fatal */
+                apply_del_path(op, dst, &patch->removed_paths);
+            }
+        }
+    }
     { struct op_patch_file *op;
 
         for ( op = patch->patch_file_list; op; op=op->next ) {
             op->performed = 0;
             if ( apply_patch_file(patch->base, op, dst) < 0 ) {
-                return(-1);
+                if ( unsafe < 3 ) {
+                    return(-1);
+                }
             }
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
                 log(LOG_NORMAL," %0.0f%%%c",
                     ((float)disk_done/disk_used)*100.0,
                     get_logging() <= LOG_VERBOSE ? '\n' : '\r');
+            }
+            if ( unsafe && op->performed ) {
+                if ( rename_patch_file(op, dst) < 0 ) {
+                    if ( unsafe < 3 ) {
+                        return(-1);
+                    }
+                    op->performed = 0;
+                }
             }
         }
     }
@@ -510,7 +554,9 @@ int apply_patch(loki_patch *patch, const char *dst)
         for ( op = patch->add_path_list; op; op=op->next ) {
             op->performed = 0;
             if ( apply_add_path(op, dst) < 0 ) {
-                return(-1);
+                if ( unsafe < 3 ) {
+                    return(-1);
+                }
             }
         }
     }
@@ -519,13 +565,23 @@ int apply_patch(loki_patch *patch, const char *dst)
         for ( op = patch->add_file_list; op; op=op->next ) {
             op->performed = 0;
             if (apply_add_file(patch->base, op, dst, disk_done, disk_used) < 0){
-                return(-1);
+                if ( unsafe < 3 ) {
+                    return(-1);
+                }
             }
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
                 log(LOG_NORMAL," %0.0f%%%c",
                     ((float)disk_done/disk_used)*100.0,
                     get_logging() <= LOG_VERBOSE ? '\n' : '\r');
+            }
+            if ( unsafe && op->performed ) {
+                if ( rename_add_file(op, dst) < 0 ) {
+                    if ( unsafe < 3 ) {
+                        return(-1);
+                    }
+                    op->performed = 0;
+                }
             }
         }
     }
@@ -534,44 +590,48 @@ int apply_patch(loki_patch *patch, const char *dst)
         for ( op = patch->symlink_file_list; op; op=op->next ) {
             op->performed = 0;
             if ( apply_symlink_file(patch->base, op, dst) < 0 ) {
-                return(-1);
+                if ( unsafe < 3 ) {
+                    return(-1);
+                }
             }
         }
     }
 
     /* Third stage, rename patched/added files, remove obsolete files */
-    { struct op_patch_file *op;
-
-        for ( op = patch->patch_file_list; op; op=op->next ) {
-            if ( op->performed ) {
-                if ( rename_patch_file(op, dst) < 0 ) {
-                    return(-1);
+    if ( ! unsafe ) {
+        { struct op_patch_file *op;
+    
+            for ( op = patch->patch_file_list; op; op=op->next ) {
+                if ( op->performed ) {
+                    if ( rename_patch_file(op, dst) < 0 ) {
+                        return(-1);
+                    }
                 }
             }
         }
-    }
-    { struct op_add_file *op;
-
-        for ( op = patch->add_file_list; op; op=op->next ) {
-            if ( op->performed ) {
-                if ( rename_add_file(op, dst) < 0 ) {
-                    return(-1);
+        { struct op_add_file *op;
+    
+            for ( op = patch->add_file_list; op; op=op->next ) {
+                if ( op->performed ) {
+                    if ( rename_add_file(op, dst) < 0 ) {
+                        return(-1);
+                    }
                 }
             }
         }
-    }
-    { struct op_del_file *op;
-
-        for ( op = patch->del_file_list; op; op=op->next ) {
-            /* This is non-fatal */
-            apply_del_file(op, dst, &patch->removed_paths);
+        { struct op_del_file *op;
+    
+            for ( op = patch->del_file_list; op; op=op->next ) {
+                /* This is non-fatal */
+                apply_del_file(op, dst, &patch->removed_paths);
+            }
         }
-    }
-    { struct op_del_path *op;
-
-        for ( op = patch->del_path_list; op; op=op->next ) {
-            /* This is non-fatal */
-            apply_del_path(op, dst, &patch->removed_paths);
+        { struct op_del_path *op;
+    
+            for ( op = patch->del_path_list; op; op=op->next ) {
+                /* This is non-fatal */
+                apply_del_path(op, dst, &patch->removed_paths);
+            }
         }
     }
 
