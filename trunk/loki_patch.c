@@ -14,11 +14,70 @@ static void print_usage(const char *argv0)
 	fprintf(stderr, "Usage: %s patch-file [install-path]\n", argv0);
 }
 
+static void update_registry(product_t *product, loki_patch *patch)
+{
+    product_option_t *default_option;
+    product_file_t *file_info;
+    product_option_t *install_option;
+    product_component_t *component;
+
+    /* Get the first install option for the component */
+    component = loki_find_component(product, patch->component);
+    if ( ! component ) { /* Then this is an add-on (new component) */
+        component = loki_create_component(product, patch->component, patch->version);
+
+        /* Create a default install option for this add-on */
+        loki_create_option(component, "Base Install");
+    }
+    default_option = loki_getfirst_option(component);
+
+    /* Now update all the added and patched files */
+    { struct op_add_path *op;
+        for ( op = patch->add_path_list; op; op=op->next ) {
+            file_info = loki_findpath(op->dst, product);
+            if ( file_info ) {
+                install_option = loki_getoption_file(file_info);
+            } else {
+                install_option = default_option;
+            }
+            loki_register_file(install_option, op->dst, 0);
+        }
+    }
+    { struct op_add_file *op;
+        for ( op = patch->add_file_list; op; op=op->next ) {
+            file_info = loki_findpath(op->dst, product);
+            if ( file_info ) {
+                install_option = loki_getoption_file(file_info);
+            } else {
+                install_option = default_option;
+            }
+            loki_register_file(install_option, op->dst, op->sum);
+        }
+    }
+    { struct op_patch_file *op;
+        for ( op = patch->patch_file_list; op; op=op->next ) {
+            struct delta_option *option;
+            for ( option=op->options; option; option=option->next ) {
+                if ( option->installed ) {
+                    file_info = loki_findpath(op->dst, product);
+                    if ( file_info ) {
+                        install_option = loki_getoption_file(file_info);
+                    } else {
+                        install_option = default_option;
+                    }
+                    loki_register_file(install_option, op->dst, option->newsum);
+                    break;
+                }
+            }
+        }
+    }
+    return;
+}
+
 int main(int argc, char *argv[])
 {
     product_t *product;
     product_info_t *product_info;
-
 	loki_patch *patch;
     const char *install;
 
@@ -80,61 +139,7 @@ int main(int argc, char *argv[])
 
     /* Update the registry */
     if ( product ) {
-        product_option_t *default_option;
-        product_file_t *file_info;
-        product_option_t *install_option;
-        product_component_t *component;
-
-        /* Get the first install option for the component */
-        component = loki_find_component(product, patch->component);
-        if ( ! component ) { /* Then this is an add-on (new component) */
-            component = loki_create_component(product, patch->component, patch->version);
-
-            /* Create a default install option for this add-on */
-            loki_create_option(component, "Base Install");
-        }
-        default_option = loki_getfirst_option(component);
-
-        /* Now update all the added and patched files */
-        { struct op_add_path *op;
-            for ( op = patch->add_path_list; op; op=op->next ) {
-                file_info = loki_findpath(op->dst, product);
-                if ( file_info ) {
-                    install_option = loki_getoption_file(file_info);
-                } else {
-                    install_option = default_option;
-                }
-                loki_register_file(install_option, op->dst, 0);
-            }
-        }
-        { struct op_add_file *op;
-            for ( op = patch->add_file_list; op; op=op->next ) {
-                file_info = loki_findpath(op->dst, product);
-                if ( file_info ) {
-                    install_option = loki_getoption_file(file_info);
-                } else {
-                    install_option = default_option;
-                }
-                loki_register_file(install_option, op->dst, op->sum);
-            }
-        }
-        { struct op_patch_file *op;
-            for ( op = patch->patch_file_list; op; op=op->next ) {
-                struct delta_option *option;
-                for ( option=op->options; option; option=option->next ) {
-                    if ( option->installed ) {
-                        file_info = loki_findpath(op->dst, product);
-                        if ( file_info ) {
-                            install_option = loki_getoption_file(file_info);
-                        } else {
-                            install_option = default_option;
-                        }
-                        loki_register_file(install_option, op->dst, option->newsum);
-                        break;
-                    }
-                }
-            }
-        }
+        update_registry(product, patch);
 
         /* Write it all out */
         loki_closeproduct(product);
