@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "loki_patch.h"
+#include "size_patch.h"
 #include "print_patch.h"
 
 void print_info(loki_patch *patch, FILE *output)
@@ -16,4 +17,5 @@ void print_info(loki_patch *patch, FILE *output)
     for ( field=patch->optional_fields; field; field=field->next ) {
         fprintf(output, "%s: %s\n", field->key, field->val);
     }
+    fprintf(output, "Size: %d K\n", patch_size(patch));
 }

@@ -1,4 +1,8 @@
 
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <limits.h>
 #ifdef __FreeBSD__
 #include <sys/param.h>
 #include <sys/mount.h>
@@ -10,10 +14,45 @@
 #include "size_patch.h"
 
 
+/* Calculate the size of the patch data files */
+size_t patch_size(loki_patch *patch)
+{
+    char path[PATH_MAX];
+    struct stat sb;
+    size_t used = 0;
+
+    /* First check the space used by new files */
+    { struct op_add_file *op;
+
+        for ( op = patch->add_file_list; op; op=op->next ) {
+            sprintf(path, "%s/%s", patch->base, op->src);
+            if ( stat(path, &sb) == 0 ) {
+                used += sb.st_size;
+            }
+        }
+    }
+
+    /* Now check the space used by patch delta files */
+    { struct op_patch_file *op;
+
+        for ( op = patch->patch_file_list; op; op=op->next ) {
+            struct delta_option *option;
+            for ( option = op->options; option; option = option->next ) {
+                sprintf(path, "%s/%s", patch->base, option->src);
+                if ( stat(path, &sb) == 0 ) {
+                    used += sb.st_size;
+                }
+            }
+        }
+    }
+
+    return((used+1023)/1024);
+}
+
 /* Calculate the maximum disk space required for patch */
 size_t calculate_space(loki_patch *patch)
 {
-    unsigned long used = 0;
+    size_t used = 0;
 
     /* First check the space used by new files */
     { struct op_add_file *op;
