@@ -93,6 +93,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
         }
         result = 0;
         for ( i=1; (result == 0) && i < (argc-1); ++i ) {
+            printf("delta-install %s %s\n", args[i], args[argc-1]);
             result = tree_patch(args[i], "", args[argc-1], "", patch);
         }
         return(result);
@@ -104,6 +105,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("delta-file %s %s %s\n", args[1], args[2], args[3]);
         return tree_patch_file(args[1], args[2], args[3], patch);
     }
 
@@ -113,6 +115,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("add-tarfile %s\n", args[1]);
         return tree_tarfile(args[1], patch);
     }
 
@@ -122,6 +125,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("add-path %s %s\n", args[1], args[2]);
         return tree_add_path(args[1], args[2], patch);
     }
 
@@ -131,6 +135,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("add-file %s %s\n", args[1], args[2]);
         return tree_add_file(args[1], args[2], patch);
     }
 
@@ -140,6 +145,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("symlink-file %s %s\n", args[1], args[2]);
         return tree_symlink_file(args[1], args[2], patch);
     }
 
@@ -149,6 +155,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("del-path %s\n", args[1]);
         return tree_del_path(args[1], patch);
     }
 
@@ -158,6 +165,7 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             print_usage(argv0);
             return(-1);
         }
+        printf("del-file %s\n", args[1]);
         return tree_del_file(args[1], patch);
     }
 
@@ -190,9 +198,6 @@ static int interpret_args(const char *argv0, int argc, char *args[],
             if ( ! file_argc || (line[0] == '#') ) {
                 continue;
             }
-
-            /* Show the line being executed */
-            printf("%s\n", line);
 
             /* Parse and execute the line */
             file_args =(char **)realloc(file_args,(file_argc+1)*sizeof(char *));
