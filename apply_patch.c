@@ -51,7 +51,7 @@ static int apply_add_path(struct op_add_path *op, const char *dst)
             retval = -1;
         }
     } else {
-        retval = mkdir(path, op->mode&0777);
+        retval = mkdir(path, (op->mode&0777)|0700);
         if ( retval < 0 ) {
             log(LOG_ERROR, "Unable to make path %s\n", path);
         } else {
