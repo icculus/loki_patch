@@ -42,21 +42,20 @@ static int apply_add_path(struct op_add_path *op, const char *dst)
     assemble_path(path, dst, op->dst);
     retval = 0;
     if ( stat(path, &sb) == 0 ) {
-        if ( S_ISDIR(sb.st_mode) ) {
-            if ( (sb.st_mode&0777) != (op->mode&0777) ) {
-                retval = chmod(path, op->mode&0777);
-            }
-        } else {
+        if ( ! S_ISDIR(sb.st_mode) ) {
             log(LOG_ERROR, "Path exists, and isn't directory: %s\n", path);
             retval = -1;
         }
     } else {
-        retval = mkdir(path, (op->mode&0777)|0700);
+        retval = mkdir(path, (op->mode&01777)|0700);
         if ( retval < 0 ) {
             log(LOG_ERROR, "Unable to make path %s\n", path);
         } else {
             op->performed = 1;
         }
+    }
+    if ( retval == 0 ) {
+        retval = chmod(path, (op->mode&01777)|0700);
     }
     return(retval);
 }
@@ -92,11 +91,13 @@ static int apply_add_file(const char *base,
         return(-1);
     }
     unlink(dst_path);
-    dst_fd = open(dst_path, O_WRONLY|O_CREAT|O_EXCL, op->mode);
+    dst_fd = open(dst_path, O_WRONLY|O_CREAT|O_EXCL, (op->mode&01777)|0200);
     if ( dst_fd < 0 ) {
         log(LOG_ERROR, "Unable to open %s\n", dst_path);
         gzclose(src_zfp);
         return(-1);
+    } else {
+        fchmod(dst_fd, (op->mode&01777)|0200);
     }
     op->performed = 1;
 
@@ -203,7 +204,7 @@ static int apply_patch_file(const char *base,
         log(LOG_ERROR, "Failed patch delta on %s\n", dst_path);
         return(-1);
     }
-    chmod(out_path, op->mode);
+    chmod(out_path, (op->mode&01777)|0200);
 
     /* Verify the checksum */
     md5_compute(out_path, csum, 1);
