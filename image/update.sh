@@ -39,6 +39,8 @@ DetectARCH()
 	case `uname -m` in
 		i?86)  echo "x86"
 			status=0;;
+		x86_64 | amd64)  echo "amd64"
+			status=0;;
 		*)     echo "`uname -m`"
 			status=0;;
 	esac
