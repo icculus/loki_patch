@@ -17,15 +17,24 @@
 #include "md5.h"
 #include "log_output.h"
 
+static void assemble_path(char *dest, const char *base, const char *path)
+{
+    if ( *path == '/' ) {
+        strcpy(dest, path);
+    } else {
+        sprintf(dest, "%s/%s", base, path);
+    }
+}
+
 static int apply_add_path(struct op_add_path *op, const char *dst)
 {
     char path[PATH_MAX];
     int retval;
 
-    log(LOG_VERBOSE, "-> ADD PATH %s/%s\n", dst, op->dst);
+    log(LOG_VERBOSE, "-> ADD PATH %s\n", op->dst);
 
     /* Create a directory, easy */
-    sprintf(path, "%s/%s", dst, op->dst);
+    assemble_path(path, dst, op->dst);
     retval = mkdir(path, op->mode&0777);
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to make path %s\n", path);
@@ -43,7 +52,7 @@ static int apply_add_file(const char *base,
     char data[4096];
     char csum[CHECKSUM_SIZE+1];
 
-    log(LOG_VERBOSE, "-> ADD FILE %s/%s\n", dst, op->dst);
+    log(LOG_VERBOSE, "-> ADD FILE %s\n", op->dst);
 
     /* Open the source and destination files */
     sprintf(src_path, "%s/%s", base, op->dst);
@@ -52,7 +61,11 @@ static int apply_add_file(const char *base,
         log(LOG_ERROR, "Unable to open %s\n", src_path);
         return(-1);
     }
-    sprintf(dst_path, "%s/%s.new", dst, op->dst);
+    if ( *op->dst == '/' ) {
+        sprintf(dst_path, "%s.new", op->dst);
+    } else {
+        sprintf(dst_path, "%s/%s.new", dst, op->dst);
+    }
     if ( mkdirhier(dst_path) < 0 ) {
         return(-1);
     }
@@ -96,10 +109,14 @@ static int apply_patch_file(const char *base,
     struct delta_option *delta;
     char csum[CHECKSUM_SIZE+1];
 
-    log(LOG_VERBOSE, "-> PATCH FILE %s/%s\n", dst, op->dst);
+    log(LOG_VERBOSE, "-> PATCH FILE %s\n", op->dst);
 
     /* Make sure the destination file exists */
-    sprintf(dst_path, "%s/%s", dst, op->dst);
+    if ( *op->dst == '/' ) {
+        strcpy(dst_path, op->dst);
+    } else {
+        sprintf(dst_path, "%s/%s", dst, op->dst);
+    }
     if ( stat(dst_path, &sb) < 0 ) {
         log(LOG_ERROR, "Can't find %s\n", dst_path);
         return(-1);
@@ -149,8 +166,13 @@ static int rename_add_file(struct op_add_file *op, const char *dst)
     int retval;
 
     /* Rename the added file into place */
-    sprintf(o_path, "%s/%s.new", dst, op->dst);
-    sprintf(n_path, "%s/%s", dst, op->dst);
+    if ( *op->dst == '/' ) {
+        sprintf(o_path, "%s.new", op->dst);
+        sprintf(n_path, "%s", op->dst);
+    } else {
+        sprintf(o_path, "%s/%s.new", dst, op->dst);
+        sprintf(n_path, "%s/%s", dst, op->dst);
+    }
     retval = rename(o_path, n_path);
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to rename file: %s -> %s\n", o_path, n_path);
@@ -165,8 +187,13 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
     int retval;
 
     /* Rename the patched file */
-    sprintf(o_path, "%s/%s.new", dst, op->dst);
-    sprintf(n_path, "%s/%s", dst, op->dst);
+    if ( *op->dst == '/' ) {
+        sprintf(o_path, "%s.new", op->dst);
+        sprintf(n_path, "%s", op->dst);
+    } else {
+        sprintf(o_path, "%s/%s.new", dst, op->dst);
+        sprintf(n_path, "%s/%s", dst, op->dst);
+    }
     retval = rename(o_path, n_path);
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to rename file: %s -> %s\n", o_path, n_path);
@@ -174,23 +201,50 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
     return(retval);
 }
 
-static int apply_del_file(struct op_del_file *op, const char *dst)
+static void add_removed_path(const char *path,
+                             const char *prefix, struct removed_path **paths)
+{
+    struct removed_path *newpath;
+
+    newpath = (struct removed_path *)malloc(sizeof *newpath);
+    if ( newpath ) {
+        if ( strncmp(path, prefix, strlen(prefix)) == 0 ) {
+            path += strlen(prefix);
+            while ( *path == '/' ) {
+                ++path;
+            }
+        }
+        newpath->path = strdup(path);
+        if ( newpath->path ) {
+            newpath->next = *paths;
+            *paths = newpath;
+        } else {
+            free(newpath);
+        }
+    }
+}
+
+static int apply_del_file(struct op_del_file *op, const char *dst,
+                          struct removed_path **paths)
 {
     char path[PATH_MAX];
     int retval;
 
-    log(LOG_VERBOSE, "-> DEL FILE %s/%s\n", dst, op->dst);
+    log(LOG_VERBOSE, "-> DEL FILE %s\n", op->dst);
 
     /* Remove a file, easy */
-    sprintf(path, "%s/%s", dst, op->dst);
+    assemble_path(path, dst, op->dst);
     retval = unlink(path);
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to remove %s\n", path);
+    } else {
+        add_removed_path(path, dst, paths);
     }
     return(retval);
 }
 
-static int remove_directory(const char *path)
+static int remove_directory(const char *path,
+                            const char *prefix, struct removed_path **paths)
 {
     char child_path[PATH_MAX];
     DIR *dir;
@@ -222,12 +276,14 @@ static int remove_directory(const char *path)
             continue;
         }
         if ( S_ISDIR(sb.st_mode) ) {
-            retval += remove_directory(child_path);
+            retval += remove_directory(child_path, prefix, paths);
         } else {
             retval = unlink(child_path);
             if ( retval < 0 ) {
                 log(LOG_ERROR, "Unable to remove %s\n", child_path);
                 total += retval;
+            } else {
+                add_removed_path(child_path, prefix, paths);
             }
         }
     }
@@ -238,20 +294,23 @@ static int remove_directory(const char *path)
     if ( retval < 0 ) {
         log(LOG_ERROR, "Unable to remove %s\n", path);
         total += retval;
+    } else {
+        add_removed_path(path, prefix, paths);
     }
     return(total);
 }
 
-static int apply_del_path(struct op_del_path *op, const char *dst)
+static int apply_del_path(struct op_del_path *op, const char *dst,
+                          struct removed_path **paths)
 {
     /* Recursively remove a directory */
     char path[PATH_MAX];
 
-    log(LOG_VERBOSE, "-> DEL PATH %s/%s\n", dst, op->dst);
+    log(LOG_VERBOSE, "-> DEL PATH %s\n", op->dst);
 
-    /* Remove a file, easy */
-    sprintf(path, "%s/%s", dst, op->dst);
-    return remove_directory(path);
+    /* Remove a directory, easy */
+    assemble_path(path, dst, op->dst);
+    return remove_directory(path, dst, paths);
 }
 
 static int chmod_directory(const char *path)
@@ -400,14 +459,14 @@ int apply_patch(loki_patch *patch, const char *dst)
 
         for ( op = patch->del_file_list; op; op=op->next ) {
             /* This is non-fatal */
-            apply_del_file(op, dst);
+            apply_del_file(op, dst, &patch->removed_paths);
         }
     }
     { struct op_del_path *op;
 
         for ( op = patch->del_path_list; op; op=op->next ) {
             /* This is non-fatal */
-            apply_del_path(op, dst);
+            apply_del_path(op, dst, &patch->removed_paths);
         }
     }
 

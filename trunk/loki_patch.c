@@ -21,8 +21,13 @@ static void update_registry(product_t *product, loki_patch *patch)
     product_option_t *install_option;
     product_component_t *component;
 
+    /* The patch component defaults to the default product component */
+    if ( patch->component ) {
+        component = loki_find_component(product, patch->component);
+    } else {
+        component = loki_getdefault_component(product);
+    }
     /* Get the first install option for the component */
-    component = loki_find_component(product, patch->component);
     if ( ! component ) { /* Then this is an add-on (new component) */
         component = loki_create_component(product, patch->component, patch->version);
 
@@ -31,7 +36,7 @@ static void update_registry(product_t *product, loki_patch *patch)
     }
     default_option = loki_getfirst_option(component);
 
-    /* Now update all the added and patched files */
+    /* Now update all the added, removed and patched files */
     { struct op_add_path *op;
         for ( op = patch->add_path_list; op; op=op->next ) {
             file_info = loki_findpath(op->dst, product);
@@ -68,6 +73,16 @@ static void update_registry(product_t *product, loki_patch *patch)
                     loki_register_file(install_option, op->dst, option->newsum);
                     break;
                 }
+            }
+        }
+    }
+    { struct removed_path *op;
+        for ( op = patch->removed_paths; op; op=op->next ) {
+            file_info = loki_findpath(op->path, product);
+            if ( file_info ) {
+                install_option = loki_getoption_file(file_info);
+fprintf(stderr, "Unregistering %s\n", op->path);
+                loki_unregister_path(install_option, op->path);
             }
         }
     }
@@ -119,6 +134,7 @@ int main(int argc, char *argv[])
     } else {
         if ( ! product ) {
             /* FIXME: Prompt for the install path? */
+            printf("Unable to find install path for %s\n", patch->product);
             print_usage(argv[0]);
             exit(3);
         }
@@ -133,7 +149,7 @@ int main(int argc, char *argv[])
             product = (product_t *)0;
         }
     }
-	if ( apply_patch(patch, argv[2]) ) {
+	if ( apply_patch(patch, install) ) {
 		exit(3);
 	}
 
