@@ -356,7 +356,7 @@ int load_symlink_file(FILE *file, int *line_num, const char *dst, loki_patch *pa
     op->dst = strdup(dst);
 
     /* Add the operation to the end of our list */
-    if ( patch->del_file_list ) {
+    if ( patch->symlink_file_list ) {
         struct op_symlink_file *here;
 
         for ( here=patch->symlink_file_list; here->next; here=here->next )

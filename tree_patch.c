@@ -112,6 +112,24 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
     int len;
     char data[4096];
 
+    /* See if the file is a symbolic link, and add it, if so */
+    if ( lstat(path, &sb) < 0 ) {
+        log(LOG_ERROR, "Unable to stat %s\n", path);
+        return(-1);
+    }
+    if ( S_ISLNK(sb.st_mode) ) {
+        int i;
+        char link[PATH_MAX];
+        
+        i = readlink(path, link, sizeof(link)-1);
+        if ( i < 0 ) {
+            log(LOG_ERROR, "Unable to read symlink %s\n", path);
+            return(-1);
+        }
+        link[i] = '\0';
+        return tree_symlink_file(link, dst, patch);
+    }
+
     log(LOG_VERBOSE, "-> ADD FILE %s\n", dst);
 
     if ( is_in_patch(OP_NONE, dst, patch) ) {
@@ -123,13 +141,6 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
     op = (struct op_add_file *)malloc(sizeof *op);
     if ( ! op ) {
         log(LOG_ERROR, "Out of memory\n");
-        return(-1);
-    }
-
-    /* Get the mode information for the file */
-    if ( stat(path, &sb) < 0 ) {
-        log(LOG_ERROR, "Unable to stat %s\n", path);
-        free(op);
         return(-1);
     }
 
@@ -255,11 +266,64 @@ int tree_patch_file(const char *o_path,
     struct delta_option *option;
     char oldsum[CHECKSUM_SIZE+1];
     char newsum[CHECKSUM_SIZE+1];
+    struct stat old_sb, new_sb;
     struct stat sb;
     int i;
     char pat_path[PATH_MAX];
 
-    /* Make sure the files to compare exist */
+    /* See if either of the files are symbolic links */
+    if ( lstat(o_path, &old_sb) < 0 ) {
+        log(LOG_ERROR, "Unable to stat %s\n", o_path);
+        return(-1);
+    }
+    if ( lstat(n_path, &new_sb) < 0 ) {
+        log(LOG_ERROR, "Unable to stat %s\n", n_path);
+        return(-1);
+    }
+    /* New file is symlink, old file is not, then add symlink */
+    if ( S_ISLNK(new_sb.st_mode) && !S_ISLNK(old_sb.st_mode) ) {
+        char link[PATH_MAX];
+        
+        i = readlink(n_path, link, sizeof(link)-1);
+        if ( i < 0 ) {
+            log(LOG_ERROR, "Unable to read symlink %s\n", n_path);
+            return(-1);
+        }
+        link[i] = '\0';
+        return tree_symlink_file(link, dst, patch);
+    }
+    /* Old file is symlink, new file is not, then add file */
+    if ( S_ISLNK(old_sb.st_mode) && !S_ISLNK(new_sb.st_mode) ) {
+        return tree_add_file(n_path, dst, patch);
+    }
+    /* Both files are links, see if they are the same links */
+    if ( S_ISLNK(new_sb.st_mode) && S_ISLNK(old_sb.st_mode) ) {
+        char old_link[PATH_MAX];
+        char new_link[PATH_MAX];
+        
+        i = readlink(o_path, old_link, sizeof(old_link)-1);
+        if ( i < 0 ) {
+            log(LOG_ERROR, "Unable to read symlink %s\n", o_path);
+            return(-1);
+        }
+        old_link[i] = '\0';
+
+        i = readlink(n_path, new_link, sizeof(new_link)-1);
+        if ( i < 0 ) {
+            log(LOG_ERROR, "Unable to read symlink %s\n", n_path);
+            return(-1);
+        }
+        new_link[i] = '\0';
+
+        /* If they are the same, nothing to do, otherwise create new link */
+        if ( strcmp(old_link, new_link) == 0 ) {
+            return(0);
+        }
+        return tree_symlink_file(new_link, dst, patch);
+    }
+    /* Okay, neither file is a symbolic link, continue.. */
+
+    /* Make sure the files to compare are readable */
     if ( access(o_path, R_OK) < 0 ) {
         log(LOG_ERROR, "Unable to read %s\n", o_path);
         return(-1);
@@ -524,14 +588,14 @@ int tree_patch(const char *o_top, const char *o_path,
 
         /* Make sure we can see the old path */
         sprintf(old_path, "%s/%s/%s", o_top, o_path, entry->d_name);
-        if ( stat(old_path, &old_sb) < 0 ) {
+        if ( lstat(old_path, &old_sb) < 0 ) {
             log(LOG_ERROR, "Unable to stat path: %s\n", old_path);
             return(-1);
         }
 
         /* See if the new entry doesn't exist, and we have to remove it */
         sprintf(new_path, "%s/%s/%s", n_top, n_path, entry->d_name);
-        if ( stat(new_path, &new_sb) < 0 ) {
+        if ( lstat(new_path, &new_sb) < 0 ) {
             /* This is an obsolete entry */
             if ( S_ISDIR(old_sb.st_mode) ) {
                 if ( tree_del_path(old_path+strlen(o_top)+2, patch) < 0 ) {
@@ -585,14 +649,14 @@ int tree_patch(const char *o_top, const char *o_path,
 
         /* Make sure we can see the new path */
         sprintf(new_path, "%s/%s/%s", n_top, n_path, entry->d_name);
-        if ( stat(new_path, &new_sb) < 0 ) {
+        if ( lstat(new_path, &new_sb) < 0 ) {
             log(LOG_ERROR, "Unable to stat path: %s\n", new_path);
             return(-1);
         }
 
         /* See if we can see the old path.  If so, handled above. */
         sprintf(old_path, "%s/%s/%s", o_top, o_path, entry->d_name);
-        if ( stat(old_path, &old_sb) < 0 ) {
+        if ( lstat(old_path, &old_sb) < 0 ) {
             /* This is a new entry of some kind */
             if ( S_ISDIR(new_sb.st_mode) ) {
                 if (tree_add_path(new_path,new_path+strlen(n_top)+2,patch) < 0){

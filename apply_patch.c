@@ -109,6 +109,9 @@ static int apply_symlink_file(const char *base,
 
     /* Symlink a file, easy */
     assemble_path(path, dst, op->dst);
+    if ( mkdirhier(path) < 0 ) {
+        return(-1);
+    }
     unlink(path);
     retval = symlink(op->link, path);
     if ( retval < 0 ) {
