@@ -11,18 +11,20 @@ ARCH := $(shell sh print_arch)
 
 SHARED_OBJS = load_patch.o size_patch.o loki_xdelta.o mkdirhier.o log_output.o
 
-MAKE_PATCH_OBJS = make_patch.o tree_patch.o save_patch.o $(SHARED_OBJS)
+MAKE_PATCH_OBJS = make_patch.o tree_patch.o save_patch.o
 
-LOKI_PATCH_OBJS = loki_patch.o apply_patch.o $(SHARED_OBJS)
+LOKI_PATCH_OBJS = loki_patch.o apply_patch.o
+
+ALL_OBJS = $(SHARED_OBJS) $(MAKE_PATCH_OBJS) $(LOKI_PATCH_OBJS)
 
 #MEM_DEBUG = -lefence
 
 all: make_patch loki_patch
 
-make_patch: $(MAKE_PATCH_OBJS)
+make_patch: $(MAKE_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
 
-loki_patch: $(LOKI_PATCH_OBJS)
+loki_patch: $(LOKI_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(MEM_DEBUG) $(LFLAGS)
 	if test ! -d image/bin/$(OS); then mkdir image/bin/$(OS); fi
 	if test ! -d image/bin/$(OS)/$(ARCH); then mkdir image/bin/$(OS)/$(ARCH); fi
@@ -46,3 +48,12 @@ clean: cleanpat
 
 cleanpat:
 	rm -rf test
+
+dep: depend
+
+depend:
+	$(CC) -MM $(CFLAGS) $(ALL_OBJS:.o=.c) > .depend
+
+ifeq ($(wildcard .depend),.depend)
+include .depend
+endif
