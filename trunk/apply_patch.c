@@ -59,7 +59,8 @@ static int apply_add_path(struct op_add_path *op, const char *dst)
 }
 
 static int apply_add_file(const char *base,
-                          struct op_add_file *op, const char *dst)
+                          struct op_add_file *op, const char *dst,
+                          size_t disk_done, size_t disk_used)
 {
     char src_path[PATH_MAX];
     char dst_path[PATH_MAX];
@@ -101,6 +102,8 @@ static int apply_add_file(const char *base,
             log(LOG_ERROR, "Failed writing to %s\n", dst_path);
             return(-1);
         }
+        disk_done += len;
+        log(LOG_NORMAL," %0.0f%%\r",((float)disk_done/disk_used)*100.0);
     }
     gzclose(src_zfp);
     if ( close(dst_fd) < 0 ) {
@@ -484,7 +487,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     { struct op_add_file *op;
 
         for ( op = patch->add_file_list; op; op=op->next ) {
-            if ( apply_add_file(patch->base, op, dst) < 0 ) {
+            if (apply_add_file(patch->base, op, dst, disk_done, disk_used) < 0){
                 return(-1);
             }
             disk_done += (op->size + 1023)/1024;
@@ -542,7 +545,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     }
 
     /* Yay!  The patch succeeded! */
-    log(LOG_NORMAL, " %2.2f%%\r", 100.0);
+    log(LOG_NORMAL, " 100%%\r");
 
     return(0);
 }
