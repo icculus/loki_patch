@@ -49,7 +49,7 @@ void update_registry(loki_patch *patch)
         component = loki_create_component(product, patch->component, patch->version);
 
         /* Create a default install option for this add-on */
-        loki_create_option(component, "Base Install");
+        loki_create_option(component, "Base Install", NULL);
     }
     default_option = loki_getfirst_option(component);
 
