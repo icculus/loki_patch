@@ -70,5 +70,11 @@ typedef struct loki_patch {
     struct op_patch_file *patch_file_list;
     struct op_del_file *del_file_list;
     struct op_del_path *del_path_list;
+
+    /* This is needed for unregistering paths that are removed */
+    struct removed_path {
+        char *path;
+        struct removed_path *next;
+    } *removed_paths;
 } loki_patch;
 

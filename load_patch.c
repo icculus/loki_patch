@@ -656,6 +656,20 @@ static void free_del_path(struct op_del_path *del_path_list)
     }
 }
 
+static void free_removed_paths(struct removed_path *removed_paths)
+{
+    struct removed_path *freeable;
+
+    while ( removed_paths ) {
+        freeable = removed_paths;
+        removed_paths = removed_paths->next;
+        if ( freeable->path ) {
+            free(freeable->path);
+        }
+        free(freeable);
+    }
+}
+
 void free_patch(loki_patch *patch)
 {
     if ( patch ) {
@@ -685,6 +699,7 @@ void free_patch(loki_patch *patch)
         free_patch_file(patch->patch_file_list);
         free_del_file(patch->del_file_list);
         free_del_path(patch->del_path_list);
+        free_removed_paths(patch->removed_paths);
         free(patch);
     }
 }
