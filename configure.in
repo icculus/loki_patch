@@ -21,6 +21,8 @@ CFLAGS="-fsigned-char -funroll-loops -Wall -g -O2"
 case "$target" in
     *i?86*)
         ARCH=x86 ;;
+    *x86_64*)
+	ARCH=amd64 ;;
     *alpha*)
         CFLAGS="$CFLAGS -mcpu=ev4 -Wa,-mall"
         ARCH=alpha ;; 
