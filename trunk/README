@@ -65,7 +65,7 @@ How To Create A Patch
 
  * Pack the patch archive, e.g: 
 
-     makeself.sh rt2-1.54b-x86 rt2-1.54b-x86.run "Railroad Tycoon II 1.54b update" ./apply-patch.sh
+     makeself.sh rt2-1.54b-x86 rt2-1.54b-x86.run "Railroad Tycoon II 1.54b update" ./update.sh
 
  * Test the patch on a fresh install, e.g: 
 
