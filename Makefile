@@ -7,7 +7,7 @@ LFLAGS += -L$(SETUPDB) -lsetupdb
 LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -static
 
 OS := $(shell uname -s)
-ARCH := $(shell ./print_arch)
+ARCH := $(shell sh print_arch)
 
 SHARED_OBJS = load_patch.o size_patch.o loki_xdelta.o mkdirhier.o log_output.o
 
@@ -30,10 +30,11 @@ loki_patch: $(LOKI_PATCH_OBJS)
 	strip image/bin/$(OS)/$(ARCH)/$@
 
 test: all cleanpat
+	gzip -cd test.tar.gz | tar xf -
 	./make_patch test/patch/test.pat load-file test/build-patch
 	mkdir test/out
 	cp -rp test/old/* test/out/
-	cp test/bin-1.1a/* test/out/
+	cp -rp test/bin-1.1a/* test/out/
 	./loki_patch -v test/patch/test.pat test/out
 
 distclean: clean
@@ -43,6 +44,4 @@ clean: cleanpat
 	rm -f *.o core
 
 cleanpat:
-	rm -rf test/patch/data/
-	cp test/patch/test.pat.virgin test/patch/test.pat
-	rm -rf test/out/
+	rm -rf test
