@@ -125,8 +125,25 @@ static void update_registry(loki_patch *patch)
         }
     }
 
-    /* Update the component version for this patch */
-    loki_setversion_component(component, patch->version);
+    /* Update the component version for this patch.
+       Don't override the version extension, if there already is one
+     */
+    { char new_version[256];
+      char old_versionbase[128], old_versionext[128];
+      char new_versionbase[128], new_versionext[128];
+
+      loki_split_version(loki_getversion_component(component),
+                         old_versionbase, sizeof(old_versionbase),
+                         old_versionext, sizeof(old_versionext));
+      loki_split_version(patch->version,
+                         new_versionbase, sizeof(new_versionbase),
+                         new_versionext, sizeof(new_versionext));
+      if ( *old_versionext ) {
+          strcpy(new_versionext, old_versionext);
+      }
+      sprintf(new_version, "%s%s", new_versionbase, new_versionext);
+      loki_setversion_component(component, new_version);
+    }
 
     /* We're done! */
     loki_closeproduct(product);
