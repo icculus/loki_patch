@@ -1,4 +1,6 @@
 1.0.2:
+Sam Lantinga - Wed May  2 12:08:16 PDT 2001
+ * Added --noprompt command line option to update.sh
 Sam Lantinga - Tue Apr 10 20:55:44 PDT 2001
  * Added an environment variable LOKI_PATCH_UNSAFE
    - If this is set to "1", then it will use less diskspace for patches,
