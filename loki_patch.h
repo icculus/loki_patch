@@ -13,7 +13,8 @@ typedef enum {
 	OP_ADD_PATH,
 	OP_DEL_FILE,
 	OP_DEL_PATH,
-	OP_PATCH_FILE
+	OP_PATCH_FILE,
+	OP_SYMLINK_FILE
 } patch_op;
 
 struct op_add_file {
@@ -55,6 +56,12 @@ struct op_patch_file {
     struct op_patch_file *next;
 };
 
+struct op_symlink_file {
+    char *dst;
+    char *link;
+    struct op_symlink_file *next;
+};
+
 /* The actual patch structure */
 typedef struct loki_patch {
     char *base;             /* The patch data base directory */
@@ -68,6 +75,7 @@ typedef struct loki_patch {
     struct op_add_path *add_path_list;
     struct op_add_file *add_file_list;
     struct op_patch_file *patch_file_list;
+    struct op_symlink_file *symlink_file_list;
     struct op_del_file *del_file_list;
     struct op_del_path *del_path_list;
 

@@ -99,6 +99,24 @@ static int apply_add_file(const char *base,
     return(0);
 }
 
+static int apply_symlink_file(const char *base,
+                          struct op_symlink_file *op, const char *dst)
+{
+    char path[PATH_MAX];
+    int retval;
+
+    log(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", op->dst, op->link);
+
+    /* Symlink a file, easy */
+    assemble_path(path, dst, op->dst);
+    unlink(path);
+    retval = symlink(op->link, path);
+    if ( retval < 0 ) {
+        log(LOG_ERROR, "Unable to create symlink %s\n", path);
+    }
+    return(retval);
+}
+
 static int apply_patch_file(const char *base,
                             struct op_patch_file *op, const char *dst)
 {
@@ -434,6 +452,14 @@ int apply_patch(loki_patch *patch, const char *dst)
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
                 log(LOG_NORMAL," %0.0f%%\r",((float)disk_done/disk_used)*100.0);
+            }
+        }
+    }
+    { struct op_symlink_file *op;
+
+        for ( op = patch->symlink_file_list; op; op=op->next ) {
+            if ( apply_symlink_file(patch->base, op, dst) < 0 ) {
+                return(-1);
             }
         }
     }

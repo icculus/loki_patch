@@ -88,6 +88,17 @@ static int is_in_patch(patch_op op, const char *dst, loki_patch *patch)
             }
         }
         break;
+        
+        case OP_SYMLINK_FILE: {
+            struct op_symlink_file *elem;
+
+            for (elem=patch->symlink_file_list;elem&&!in_patch;elem=elem->next){
+                if ( strcmp(elem->dst, dst) == 0 ) {
+                    ++in_patch;
+                }
+            }
+        }
+        break;
     }
     return in_patch;
 }
@@ -343,6 +354,33 @@ int tree_patch_file(const char *o_path,
     option->src = strdup(pat_path+strlen(patch->base)+1);
 
     /* We're done, successful delta */
+    return(0);
+}
+
+int tree_symlink_file(const char *link, const char *dst, loki_patch *patch)
+{
+    struct op_symlink_file *op;
+
+    log(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", dst, link);
+
+    if ( is_in_patch(OP_NONE, dst, patch) ) {
+        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        return(-1);
+    }
+
+    /* Allocate memory for the operation */
+    op = (struct op_symlink_file *)malloc(sizeof *op);
+    if ( ! op ) {
+        log(LOG_ERROR, "Out of memory\n");
+        return(-1);
+    }
+
+    /* Put it all together now */
+    op->dst = strdup(dst);
+    op->link = strdup(link);
+    op->next = patch->symlink_file_list;
+    patch->symlink_file_list = op;
+
     return(0);
 }
 

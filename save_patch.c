@@ -74,6 +74,16 @@ int save_patch(loki_patch *patch, const char *patchfile)
         }
     }
 
+    /* Print out the list of symbolic links */
+    { struct op_symlink_file *op;
+
+        for ( op=patch->symlink_file_list; op; op=op->next ) {
+            fprintf(file, "SYMLINK FILE %s\n", op->dst);
+            fprintf(file, "link=%s\n", op->link);
+            fprintf(file, "\n");
+        }
+    }
+
     /* Print out the list of obsolete files */
     { struct op_del_file *op;
 
