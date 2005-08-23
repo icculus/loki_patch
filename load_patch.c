@@ -8,7 +8,7 @@
 #include "load_patch.h"
 #include "log_output.h"
 
-#define BASE "data"
+#define BASE "patchdata"
 
 
 int load_add_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
@@ -20,7 +20,7 @@ int load_add_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
     /* Allocate memory for the operation */
     op = (struct op_add_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     memset(op, 0, (sizeof *op));
@@ -45,7 +45,7 @@ int load_add_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
         key = line;
         value = strchr(key, '=');
         if ( ! value ) {
-            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            logme(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
             return(-1);
         }
         *value++ = '\0';
@@ -63,14 +63,14 @@ int load_add_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
         if ( strcmp(key, "size") == 0 ) {
             op->size = strtol(value, 0, 0);
         } else {
-            log(LOG_ERROR, "Unknown ADD FILE key %d: %s\n", *line_num, key);
+            logme(LOG_ERROR, "Unknown ADD FILE key %d: %s\n", *line_num, key);
             return(-1);
         }
     }
 
     /* Make sure we have all the information we need */
     if ( ! op->src || ! *op->sum || ! op->mode ) {
-        log(LOG_ERROR, "Incomplete ADD FILE entry above line %d\n", *line_num);
+        logme(LOG_ERROR, "Incomplete ADD FILE entry above line %d\n", *line_num);
         return(-1);
     }
     op->dst = strdup(dst);
@@ -98,7 +98,7 @@ int load_add_path(FILE *file, int *line_num, const char *dst, loki_patch *patch)
     /* Allocate memory for the operation */
     op = (struct op_add_path *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     memset(op, 0, (sizeof *op));
@@ -123,7 +123,7 @@ int load_add_path(FILE *file, int *line_num, const char *dst, loki_patch *patch)
         key = line;
         value = strchr(key, '=');
         if ( ! value ) {
-            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            logme(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
             return(-1);
         }
         *value++ = '\0';
@@ -132,14 +132,14 @@ int load_add_path(FILE *file, int *line_num, const char *dst, loki_patch *patch)
         if ( strcmp(key, "mode") == 0 ) {
             op->mode = strtol(value, 0, 0);
         } else {
-            log(LOG_ERROR, "Unknown ADD PATH key %d: %s\n", *line_num, key);
+            logme(LOG_ERROR, "Unknown ADD PATH key %d: %s\n", *line_num, key);
             return(-1);
         }
     }
 
     /* Make sure we have all the information we need */
     if ( ! op->mode ) {
-        log(LOG_ERROR, "Incomplete ADD PATH entry above line %d\n", *line_num);
+        logme(LOG_ERROR, "Incomplete ADD PATH entry above line %d\n", *line_num);
         return(-1);
     }
     op->dst = strdup(dst);
@@ -171,7 +171,7 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
     /* Allocate memory for the operation */
     op = (struct op_patch_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     memset(op, 0, (sizeof *op));
@@ -197,7 +197,7 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
         key = line;
         value = strchr(key, '=');
         if ( ! value ) {
-            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            logme(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
             return(-1);
         }
         *value++ = '\0';
@@ -208,14 +208,14 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
             if ( !option ) {
                 option = (struct delta_option *)malloc(sizeof *option);
                 if ( ! option ) {
-                    log(LOG_ERROR, "Out of memory\n");
+                    logme(LOG_ERROR, "Out of memory\n");
                     return(-1);
                 }
                 memset(option, 0, (sizeof *option));
             }
             if ( strcmp(key, "src") == 0 ) {
                 if ( option->src ) {
-                    log(LOG_ERROR, "Patch option not complete at line %d\n",
+                    logme(LOG_ERROR, "Patch option not complete at line %d\n",
                                                                     *line_num);
                     return(-1);
                 }
@@ -223,7 +223,7 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
             } else
             if ( strcmp(key, "oldsum") == 0 ) {
                 if ( *option->oldsum ) {
-                    log(LOG_ERROR, "Patch option not complete at line %d\n",
+                    logme(LOG_ERROR, "Patch option not complete at line %d\n",
                                                                     *line_num);
                     return(-1);
                 }
@@ -231,7 +231,7 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
             } else
             if ( strcmp(key, "newsum") == 0 ) {
                 if ( *option->newsum ) {
-                    log(LOG_ERROR, "Patch option not complete at line %d\n",
+                    logme(LOG_ERROR, "Patch option not complete at line %d\n",
                                                                     *line_num);
                     return(-1);
                 }
@@ -260,14 +260,14 @@ int load_patch_file(FILE *file, int *line_num, const char *dst,
         if ( strcmp(key, "optional") == 0 ) {
             op->optional = strtol(value, 0, 0);
         } else {
-            log(LOG_ERROR, "Unknown PATCH FILE key %d: %s\n", *line_num, key);
+            logme(LOG_ERROR, "Unknown PATCH FILE key %d: %s\n", *line_num, key);
             return(-1);
         }
     }
 
     /* Make sure we have all the information we need */
     if ( ! op->mode || ! op->options || option ) {
-        log(LOG_ERROR, "Incomplete PATCH FILE entry above line %d\n",
+        logme(LOG_ERROR, "Incomplete PATCH FILE entry above line %d\n",
                                                             *line_num);
         return(-1);
     }
@@ -296,7 +296,7 @@ int load_symlink_file(FILE *file, int *line_num, const char *dst, loki_patch *pa
     /* Allocate memory for the operation */
     op = (struct op_symlink_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     memset(op, 0, (sizeof *op));
@@ -321,7 +321,7 @@ int load_symlink_file(FILE *file, int *line_num, const char *dst, loki_patch *pa
         key = line;
         value = strchr(key, '=');
         if ( ! value ) {
-            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            logme(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
             return(-1);
         }
         *value++ = '\0';
@@ -329,14 +329,14 @@ int load_symlink_file(FILE *file, int *line_num, const char *dst, loki_patch *pa
         if ( strcmp(key, "link") == 0 ) {
             op->link = strdup(value);
         } else {
-            log(LOG_ERROR, "Unknown SYMLINK FILE key %d: %s\n", *line_num, key);
+            logme(LOG_ERROR, "Unknown SYMLINK FILE key %d: %s\n", *line_num, key);
             return(-1);
         }
     }
 
     /* Make sure we have all the information we need */
     if ( ! op->link ) {
-        log(LOG_ERROR, "Incomplete SYMLINK FILE entry above line %d\n",
+        logme(LOG_ERROR, "Incomplete SYMLINK FILE entry above line %d\n",
                                                             *line_num);
         return(-1);
     }
@@ -365,7 +365,7 @@ int load_del_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
     /* Allocate memory for the operation */
     op = (struct op_del_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     memset(op, 0, (sizeof *op));
@@ -390,12 +390,12 @@ int load_del_file(FILE *file, int *line_num, const char *dst, loki_patch *patch)
         key = line;
         value = strchr(key, '=');
         if ( ! value ) {
-            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            logme(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
             return(-1);
         }
         *value++ = '\0';
 
-        log(LOG_ERROR, "Unknown DEL FILE key %d: %s\n", *line_num, key);
+        logme(LOG_ERROR, "Unknown DEL FILE key %d: %s\n", *line_num, key);
         return(-1);
     }
 
@@ -425,7 +425,7 @@ int load_del_path(FILE *file, int *line_num, const char *dst, loki_patch *patch)
     /* Allocate memory for the operation */
     op = (struct op_del_path *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     memset(op, 0, (sizeof *op));
@@ -450,12 +450,12 @@ int load_del_path(FILE *file, int *line_num, const char *dst, loki_patch *patch)
         key = line;
         value = strchr(key, '=');
         if ( ! value ) {
-            log(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
+            logme(LOG_ERROR, "Unknown patch line %d: %s\n", *line_num, line);
             return(-1);
         }
         *value++ = '\0';
 
-        log(LOG_ERROR, "Unknown DEL PATH key %d: %s\n", *line_num, key);
+        logme(LOG_ERROR, "Unknown DEL PATH key %d: %s\n", *line_num, key);
         return(-1);
     }
 
@@ -544,7 +544,7 @@ loki_patch *load_patch(const char *patchfile)
     /* Try to open the patch file */
     file = fopen(patchfile, "r");
     if ( ! file ) {
-        log(LOG_ERROR, "Unable to open patch file: %s\n", patchfile);
+        logme(LOG_ERROR, "Unable to open patch file: %s\n", patchfile);
         free_patch(patch);
         return (loki_patch *)0;
     }
@@ -553,7 +553,7 @@ loki_patch *load_patch(const char *patchfile)
     if ( strrchr(patchfile, '/') != NULL ) {
         patch->base = (char *)malloc(strlen(patchfile) + strlen("/" BASE) + 1);
         if ( ! patch->base ) {
-            log(LOG_ERROR, "Out of memory\n");
+            logme(LOG_ERROR, "Out of memory\n");
             free_patch(patch);
             return (loki_patch *)0;
         }
@@ -563,7 +563,7 @@ loki_patch *load_patch(const char *patchfile)
     } else {
         patch->base = (char *)malloc(strlen("./" BASE) + 1);
         if ( ! patch->base ) {
-            log(LOG_ERROR, "Out of memory\n");
+            logme(LOG_ERROR, "Out of memory\n");
             free_patch(patch);
             return (loki_patch *)0;
         }
@@ -620,7 +620,7 @@ loki_patch *load_patch(const char *patchfile)
             patch->postpatch = strdup(token);
         } else {
             if ( ! add_optional_field(patch, line, token) ) {
-                log(LOG_ERROR, "Out of memory\n");
+                logme(LOG_ERROR, "Out of memory\n");
                 free_patch(patch);
                 return (loki_patch *)0;
             }
@@ -629,7 +629,7 @@ loki_patch *load_patch(const char *patchfile)
 
     /* Verify that the header is complete */
     if ( ! patch->product || ! patch->version ) {
-        log(LOG_ERROR,
+        logme(LOG_ERROR,
     "The patch file doesn't contain a complete patch header:\n"
     SAMPLE_HEADER
         );
@@ -641,7 +641,7 @@ loki_patch *load_patch(const char *patchfile)
     fgets(line, sizeof(line), file);
     if ( (line[0] != '%') ||
          (strncmp(&line[1], LOKI_VERSION, strlen(LOKI_VERSION)) != 0) ) {
-        log(LOG_ERROR, "Patch version doesn't match "LOKI_VERSION"\n");
+        logme(LOG_ERROR, "Patch version doesn't match "LOKI_VERSION"\n");
         free_patch(patch);
         return (loki_patch *)0;
     }
@@ -671,7 +671,7 @@ loki_patch *load_patch(const char *patchfile)
             }
         }
         if ( ! valid ) {
-            log(LOG_ERROR, "Unknown section header at line %d\n", line_num);
+            logme(LOG_ERROR, "Unknown section header at line %d\n", line_num);
             free_patch(patch);
             return (loki_patch *)0;
         }

@@ -49,9 +49,9 @@
 
 #define LOKI_PATCH
 
-#include "xdelta.h"
+#include "xdelta_inc/xdelta.h"
 
-extern HandleFuncTable xd_handle_table;
+static HandleFuncTable xd_handle_table;
 
 #define XD_PAGE_SIZE (1<<20)
 
@@ -130,7 +130,7 @@ typedef struct {
   gint16         to_name_len;
 
   guint32        header_space[HEADER_WORDS];
-  guint8         magic_buf[XDELTA_PREFIX_LEN];
+  char           magic_buf[XDELTA_PREFIX_LEN];
 
   XdFileHandle      *patch_in;
 
@@ -1072,19 +1072,19 @@ xd_handle_name (XdFileHandle *fh)
 }
 
 static gssize
-xd_handle_read (XdFileHandle *fh, guint8 *buf, gsize nbyte)
+xd_handle_read (XdFileHandle *fh, char *buf, gsize nbyte)
 {
   if (nbyte == 0)
     return 0;
 
   if (! (fh->in_read) (fh, buf, nbyte)) /* This is suspicious */
     {
-      xd_error ("read failed: %s\n", g_strerror (errno));
+      xd_error ("read failed: %s\n", errno?g_strerror (errno):"Unexpected end of file");
       return -1;
     }
 
   if (!no_verify)
-    edsio_md5_update (&fh->ctx, buf, nbyte);
+    edsio_md5_update (&fh->ctx, (guint8 *)buf, nbyte);
 
   fh->current_pos += nbyte;
 
@@ -1092,7 +1092,7 @@ xd_handle_read (XdFileHandle *fh, guint8 *buf, gsize nbyte)
 }
 
 static gboolean
-xd_handle_write (XdFileHandle *fh, const guint8 *buf, gsize nbyte)
+xd_handle_write (XdFileHandle *fh, const char *buf, gsize nbyte)
 {
   g_assert (fh->type == WRITE_TYPE);
 
@@ -1104,7 +1104,7 @@ xd_handle_write (XdFileHandle *fh, const guint8 *buf, gsize nbyte)
     }
 
   if (! no_verify)
-    edsio_md5_update (&fh->ctx, buf, nbyte);
+    edsio_md5_update (&fh->ctx, (guint8 *)buf, nbyte);
 
   if (! (*fh->out_write) (fh, buf, nbyte))
     {
@@ -1278,7 +1278,7 @@ static gssize
 xd_handle_map_page (XdFileHandle *fh, guint pgno, const guint8** mem)
 {
   LRU* lru;
-  guint to_map;
+  gint to_map;
 
 #ifdef DEBUG_MAP
   g_print ("map %p:%d\n", fh, pgno);
@@ -1352,7 +1352,7 @@ xd_handle_map_page (XdFileHandle *fh, guint pgno, const guint8** mem)
 	      return -1;
 	    }
 #else
-	  if (! (lru->buffer = mmap (NULL, to_map, PROT_READ, MAP_PRIVATE, fh->fd, pgno * XD_PAGE_SIZE)))
+	  if ( (lru->buffer = mmap (NULL, to_map, PROT_READ, MAP_PRIVATE, fh->fd, pgno * XD_PAGE_SIZE)) == MAP_FAILED )
 	    {
 	      xd_error ("mmap failed: %s\n", g_strerror (errno));
 	      return -1;
@@ -1428,7 +1428,7 @@ xd_handle_copy (XdFileHandle *from, XdFileHandle *to, guint off, guint len)
 {
   if (from->in)
     {
-      guint8 buf[1024];
+      char buf[1024];
 
       /*if (! xd_handle_set_pos (from, off))
 	return FALSE;*/
@@ -1476,7 +1476,7 @@ xd_handle_copy (XdFileHandle *from, XdFileHandle *to, guint off, guint len)
 	  if (xd_handle_map_page (from, off_page, &from->copy_page) < 0)
 	    return FALSE;
 
-	  if (! xd_handle_write (to, from->copy_page + off_off, copy))
+	  if (! xd_handle_write (to, (char *)from->copy_page + off_off, copy))
 	    return FALSE;
 
 	  if (! xd_handle_unmap_page (from, off_page, &from->copy_page))
@@ -1495,13 +1495,13 @@ xd_handle_putui (XdFileHandle *fh, guint32 i)
 {
   guint32 hi = g_htonl (i);
 
-  return xd_handle_write (fh, (guint8*)&hi, 4);
+  return xd_handle_write (fh, (char *)&hi, 4);
 }
 
 static gboolean
 xd_handle_getui (XdFileHandle *fh, guint32* i)
 {
-  if (xd_handle_read (fh, (guint8*)i, 4) != 4)
+  if (xd_handle_read (fh, (char *)i, 4) != 4)
     return FALSE;
 
   *i = g_ntohl (*i);
@@ -1557,7 +1557,7 @@ delta_command (gint argc, gchar** argv)
   XdeltaSource* src;
   XdeltaControl* cont;
   gboolean from_is_compressed = FALSE, to_is_compressed = FALSE;
-  guint32 control_offset, header_offset;
+  gint32 control_offset, header_offset;
   const char* from_name, *to_name;
   guint32 header_space[HEADER_WORDS];
 
@@ -1625,7 +1625,7 @@ delta_command (gint argc, gchar** argv)
 
   htonl_array (header_space, HEADER_WORDS);
 
-  if (! xd_handle_write (out, (guint8*) header_space, HEADER_SPACE))
+  if (! xd_handle_write (out, (char *) header_space, HEADER_SPACE))
     return 2;
 
   if (! xd_handle_write (out, from_name, strlen (from_name)))
@@ -1700,7 +1700,7 @@ process_patch (const char* name)
   if (xd_handle_read (patch->patch_in, patch->magic_buf, XDELTA_PREFIX_LEN) != XDELTA_PREFIX_LEN)
     return NULL;
 
-  if (xd_handle_read (patch->patch_in, (guint8*) patch->header_space, HEADER_SPACE) != HEADER_SPACE)
+  if (xd_handle_read (patch->patch_in, (char*) patch->header_space, HEADER_SPACE) != HEADER_SPACE)
     return NULL;
 
   ntohl_array (patch->header_space, HEADER_WORDS);
@@ -1768,7 +1768,7 @@ process_patch (const char* name)
 
   if (patch->has_trailer)
     {
-      guint8 trailer_buf[XDELTA_PREFIX_LEN];
+      char trailer_buf[XDELTA_PREFIX_LEN];
 
       if (xd_handle_read (patch->patch_in, trailer_buf, XDELTA_PREFIX_LEN) != XDELTA_PREFIX_LEN)
 	return NULL;

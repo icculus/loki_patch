@@ -290,7 +290,7 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
 
     /* See if the file is a symbolic link, and add it, if so */
     if ( lstat(path, &sb) < 0 ) {
-        log(LOG_ERROR, "Unable to stat %s\n", path);
+        logme(LOG_ERROR, "Unable to stat %s\n", path);
         return(-1);
     }
     if ( S_ISLNK(sb.st_mode) ) {
@@ -299,28 +299,28 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
         
         i = readlink(path, link, sizeof(link)-1);
         if ( i < 0 ) {
-            log(LOG_ERROR, "Unable to read symlink %s\n", path);
+            logme(LOG_ERROR, "Unable to read symlink %s\n", path);
             return(-1);
         }
         link[i] = '\0';
         return tree_symlink_file(link, dst, patch);
     }
 
-    log(LOG_VERBOSE, "-> ADD FILE %s\n", dst);
+    logme(LOG_VERBOSE, "-> ADD FILE %s\n", dst);
 
     /* See if the path is used by any other portion of the patch */
     remove_path(OP_ADD_FILE, dst, patch);
     remove_path(OP_SYMLINK_FILE, dst, patch);
     remove_path(OP_PATCH_FILE, dst, patch);     /* add supercedes patch */
     if ( is_in_patch(OP_NONE, dst, patch) ) {
-        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        logme(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
     }
 
     /* Allocate memory for the operation */
     op = (struct op_add_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
 
@@ -332,20 +332,20 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
     }
     src_fp = fopen(path, "rb");
     if ( src_fp == NULL ) {
-        log(LOG_ERROR, "Unable to open %s\n", path);
+        logme(LOG_ERROR, "Unable to open %s\n", path);
         free(op);
         return(-1);
     }
     pat_zfp = gzopen(pat_path, "wb9");
     if ( pat_zfp == NULL ) {
-        log(LOG_ERROR, "Unable to open %s\n", path);
+        logme(LOG_ERROR, "Unable to open %s\n", path);
         fclose(src_fp);
         free(op);
         return(-1);
     }
     while ( (len=fread(data, 1, sizeof(data), src_fp)) > 0 ) {
         if ( gzwrite(pat_zfp, data, len) != len ) {
-            log(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
+            logme(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
             fclose(src_fp);
             gzclose(pat_zfp);
             free(op);
@@ -354,7 +354,7 @@ int tree_add_file(const char *path, const char *dst, loki_patch *patch)
     }
     fclose(src_fp);
     if ( gzclose(pat_zfp) != Z_OK ) {
-        log(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
+        logme(LOG_ERROR, "Error writing patch data: %s\n", strerror(errno));
     }
 
     /* Put it all together now */
@@ -383,21 +383,21 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
     is_toplevel = (!dst || !*dst || (strcmp(dst, ".") == 0));
 
     if ( ! is_toplevel ) {
-        log(LOG_VERBOSE, "-> ADD PATH %s\n", dst);
+        logme(LOG_VERBOSE, "-> ADD PATH %s\n", dst);
     }
 
     /* See if the path is used by any other portion of the patch */
     if ( ! is_toplevel ) {
         remove_path(OP_ADD_PATH, dst, patch);
         if ( is_in_patch(OP_NONE, dst, patch) ) {
-            log(LOG_ERROR, "Path %s is already in patch\n", dst);
+            logme(LOG_ERROR, "Path %s is already in patch\n", dst);
             return(-1);
         }
     }
 
     /* Get the mode information for the path */
     if ( stat(path, &sb) < 0 ) {
-        log(LOG_ERROR, "Unable to stat %s\n", path);
+        logme(LOG_ERROR, "Unable to stat %s\n", path);
         free(op);
         return(-1);
     }
@@ -406,7 +406,7 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
         /* Allocate memory for the operation */
         op = (struct op_add_path *)malloc(sizeof *op);
         if ( ! op ) {
-            log(LOG_ERROR, "Out of memory\n");
+            logme(LOG_ERROR, "Out of memory\n");
             return(-1);
         }
 
@@ -431,7 +431,7 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
     /* Now add everything in the path */
     dir = opendir(path);
     if ( ! dir ) {
-        log(LOG_ERROR, "Unable to list %s\n", path);
+        logme(LOG_ERROR, "Unable to list %s\n", path);
         return(-1);
     }
     while ( (entry=readdir(dir)) != NULL ) {
@@ -449,7 +449,7 @@ int tree_add_path(const char *path, const char *dst, loki_patch *patch)
             sprintf(child_dst, "%s/%s", dst, entry->d_name);
         }
         if ( stat(child_path, &sb) < 0 ) {
-            log(LOG_ERROR, "Unable to stat %s\n", child_path);
+            logme(LOG_ERROR, "Unable to stat %s\n", child_path);
             return(-1);
         }
         if ( S_ISDIR(sb.st_mode) ) {
@@ -482,11 +482,11 @@ int tree_patch_file(const char *o_path,
 
     /* See if either of the files are symbolic links */
     if ( lstat(o_path, &old_sb) < 0 ) {
-        log(LOG_ERROR, "Unable to stat %s\n", o_path);
+        logme(LOG_ERROR, "Unable to stat %s\n", o_path);
         return(-1);
     }
     if ( lstat(n_path, &new_sb) < 0 ) {
-        log(LOG_ERROR, "Unable to stat %s\n", n_path);
+        logme(LOG_ERROR, "Unable to stat %s\n", n_path);
         return(-1);
     }
     /* New file is symlink, old file is not, then add symlink */
@@ -495,7 +495,7 @@ int tree_patch_file(const char *o_path,
         
         i = readlink(n_path, link, sizeof(link)-1);
         if ( i < 0 ) {
-            log(LOG_ERROR, "Unable to read symlink %s\n", n_path);
+            logme(LOG_ERROR, "Unable to read symlink %s\n", n_path);
             return(-1);
         }
         link[i] = '\0';
@@ -512,14 +512,14 @@ int tree_patch_file(const char *o_path,
         
         i = readlink(o_path, old_link, sizeof(old_link)-1);
         if ( i < 0 ) {
-            log(LOG_ERROR, "Unable to read symlink %s\n", o_path);
+            logme(LOG_ERROR, "Unable to read symlink %s\n", o_path);
             return(-1);
         }
         old_link[i] = '\0';
 
         i = readlink(n_path, new_link, sizeof(new_link)-1);
         if ( i < 0 ) {
-            log(LOG_ERROR, "Unable to read symlink %s\n", n_path);
+            logme(LOG_ERROR, "Unable to read symlink %s\n", n_path);
             return(-1);
         }
         new_link[i] = '\0';
@@ -534,11 +534,11 @@ int tree_patch_file(const char *o_path,
 
     /* Make sure the files to compare are readable */
     if ( access(o_path, R_OK) < 0 ) {
-        log(LOG_ERROR, "Unable to read %s\n", o_path);
+        logme(LOG_ERROR, "Unable to read %s\n", o_path);
         return(-1);
     }
     if ( access(n_path, R_OK) < 0 ) {
-        log(LOG_ERROR, "Unable to read %s\n", n_path);
+        logme(LOG_ERROR, "Unable to read %s\n", n_path);
         return(-1);
     }
 
@@ -580,14 +580,14 @@ int tree_patch_file(const char *o_path,
         }
     }
 
-    log(LOG_VERBOSE, "-> PATCH FILE %s\n", dst);
+    logme(LOG_VERBOSE, "-> PATCH FILE %s\n", dst);
 
     /* We can have multiple "PATCH FILE" entries, but no other kind */
     if ( is_in_patch(OP_ADD_PATH, dst, patch) ||
          is_in_patch(OP_DEL_PATH, dst, patch) ||
          is_in_patch(OP_DEL_FILE, dst, patch) ||
          is_in_patch(OP_SYMLINK_FILE, dst, patch) ) {
-        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        logme(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
     }
 
@@ -600,7 +600,7 @@ int tree_patch_file(const char *o_path,
     if ( ! op ) {
         op = (struct op_patch_file *)malloc(sizeof *op);
         if ( ! op ) {
-            log(LOG_ERROR, "Out of memory\n");
+            logme(LOG_ERROR, "Out of memory\n");
             return(-1);
         }
         op->dst = strdup(dst);
@@ -614,7 +614,7 @@ int tree_patch_file(const char *o_path,
 
     /* The patch size is the size of the largest output file */
     if ( stat(n_path, &sb) < 0 ) {
-        log(LOG_ERROR, "Unable to stat %s\n", n_path);
+        logme(LOG_ERROR, "Unable to stat %s\n", n_path);
         return(-1);
     }
     if ( op->size < sb.st_size ) {
@@ -625,7 +625,7 @@ int tree_patch_file(const char *o_path,
     /* Allocate memory for the option */
     option = (struct delta_option *)malloc(sizeof *option);
     if ( ! option ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
     if ( op->options ) {
@@ -652,7 +652,7 @@ int tree_patch_file(const char *o_path,
         sprintf(pat_path, "%s/%s.%d", patch->base, dst, ++i);
     }
     if ( loki_xdelta(o_path, n_path, pat_path) < 0 ) {
-        log(LOG_ERROR, "Failed delta between %s and %s\n", o_path, n_path);
+        logme(LOG_ERROR, "Failed delta between %s and %s\n", o_path, n_path);
         return(-1);
     }
     option->src = strdup(pat_path+strlen(patch->base)+1);
@@ -665,20 +665,20 @@ int tree_symlink_file(const char *link, const char *dst, loki_patch *patch)
 {
     struct op_symlink_file *op;
 
-    log(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", dst, link);
+    logme(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", dst, link);
 
     /* See if the path is used by any other portion of the patch */
     remove_path(OP_ADD_FILE, dst, patch);
     remove_path(OP_SYMLINK_FILE, dst, patch);
     if ( is_in_patch(OP_NONE, dst, patch) ) {
-        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        logme(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
     }
 
     /* Allocate memory for the operation */
     op = (struct op_symlink_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
 
@@ -697,7 +697,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
     char path[PATH_MAX];
     int pathlen;
 
-    log(LOG_VERBOSE, "-> DEL PATH %s\n", dst);
+    logme(LOG_VERBOSE, "-> DEL PATH %s\n", dst);
 
     /* Need to make sure that this path isn't part of any of the path */
     remove_path(OP_DEL_PATH, dst, patch);
@@ -709,7 +709,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
         for (elem=patch->add_path_list; elem; elem=elem->next){
             if ( (strcmp(elem->dst, dst) == 0) ||
                  (strncmp(elem->dst, path, pathlen) == 0) ) {
-                log(LOG_ERROR,
+                logme(LOG_ERROR,
 "Can't delete path %s, used by ADD PATH %s\n", dst, elem->dst);
                 return(-1);
             }
@@ -721,7 +721,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
         for (elem=patch->add_file_list; elem; elem=elem->next){
             if ( (strcmp(elem->dst, dst) == 0) ||
                  (strncmp(elem->dst, path, pathlen) == 0) ) {
-                log(LOG_ERROR,
+                logme(LOG_ERROR,
 "Can't delete path %s, used by ADD FILE %s\n", dst, elem->dst);
                 return(-1);
             }
@@ -733,7 +733,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
         for (elem=patch->del_file_list; elem; elem=elem->next){
             if ( (strcmp(elem->dst, dst) == 0) ||
                  (strncmp(elem->dst, path, pathlen) == 0) ) {
-                log(LOG_ERROR,
+                logme(LOG_ERROR,
 "Can't delete path %s, used by DEL FILE %s\n", dst, elem->dst);
                 return(-1);
             }
@@ -745,7 +745,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
         for (elem=patch->patch_file_list; elem; elem=elem->next){
             if ( (strcmp(elem->dst, dst) == 0) ||
                  (strncmp(elem->dst, path, pathlen) == 0) ) {
-                log(LOG_ERROR,
+                logme(LOG_ERROR,
 "Can't delete path %s, used by PATCH FILE %s\n", dst, elem->dst);
                 return(-1);
             }
@@ -755,7 +755,7 @@ int tree_del_path(const char *dst, loki_patch *patch)
     /* Allocate memory for the operation */
     op = (struct op_del_path *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
 
@@ -771,19 +771,19 @@ int tree_del_file(const char *dst, loki_patch *patch)
 {
     struct op_del_file *op;
 
-    log(LOG_VERBOSE, "-> DEL FILE %s\n", dst);
+    logme(LOG_VERBOSE, "-> DEL FILE %s\n", dst);
 
     /* See if the path is used by any other portion of the patch */
     remove_path(OP_DEL_FILE, dst, patch);
     if ( is_in_patch(OP_NONE, dst, patch) ) {
-        log(LOG_ERROR, "Path %s is already in patch\n", dst);
+        logme(LOG_ERROR, "Path %s is already in patch\n", dst);
         return(-1);
     }
 
     /* Allocate memory for the operation */
     op = (struct op_del_file *)malloc(sizeof *op);
     if ( ! op ) {
-        log(LOG_ERROR, "Out of memory\n");
+        logme(LOG_ERROR, "Out of memory\n");
         return(-1);
     }
 
@@ -821,7 +821,7 @@ int tree_patch(const char *o_top, const char *o_path,
     sprintf(path, "%s/%s", o_top, o_path);
     old = opendir(path);
     if ( ! old ) {
-        log(LOG_ERROR, "Unable to open directory: %s\n", path);
+        logme(LOG_ERROR, "Unable to open directory: %s\n", path);
         return(-1);
     }
     while ( (entry=readdir(old)) != NULL ) {
@@ -834,7 +834,7 @@ int tree_patch(const char *o_top, const char *o_path,
         /* Make sure we can see the old path */
         sprintf(old_path, "%s/%s/%s", o_top, o_path, entry->d_name);
         if ( lstat(old_path, &old_sb) < 0 ) {
-            log(LOG_ERROR, "Unable to stat path: %s\n", old_path);
+            logme(LOG_ERROR, "Unable to stat path: %s\n", old_path);
             --status;
             continue;
         }
@@ -857,7 +857,7 @@ int tree_patch(const char *o_top, const char *o_path,
 
         /* If they both exist, but are not the same type of file.. */
         if ( S_ISDIR(old_sb.st_mode) != S_ISDIR(new_sb.st_mode) ) {
-            log(LOG_ERROR, "%s is a %s and %s is a %s\n",
+            logme(LOG_ERROR, "%s is a %s and %s is a %s\n",
                     old_path, S_ISDIR(old_sb.st_mode) ? "directory" : "file",
                     new_path, S_ISDIR(new_sb.st_mode) ? "directory" : "file");
             --status;
@@ -884,7 +884,7 @@ int tree_patch(const char *o_top, const char *o_path,
     sprintf(path, "%s/%s", n_top, n_path);
     new = opendir(path);
     if ( ! new ) {
-        log(LOG_ERROR, "Unable to open directory: %s\n", path);
+        logme(LOG_ERROR, "Unable to open directory: %s\n", path);
         return(-1);
     }
     while ( (entry=readdir(new)) != NULL ) {
@@ -897,7 +897,7 @@ int tree_patch(const char *o_top, const char *o_path,
         /* Make sure we can see the new path */
         sprintf(new_path, "%s/%s/%s", n_top, n_path, entry->d_name);
         if ( lstat(new_path, &new_sb) < 0 ) {
-            log(LOG_ERROR, "Unable to stat path: %s\n", new_path);
+            logme(LOG_ERROR, "Unable to stat path: %s\n", new_path);
             --status;
             continue;
         }
@@ -939,7 +939,7 @@ int tree_tarfile(const char *tarfile, loki_patch *patch)
     /* Make sure we can read the tarfile */
     fp = fopen(tarfile, "rb");
     if ( ! fp ) {
-        log(LOG_ERROR, "Unable to read %s\n", tarfile);
+        logme(LOG_ERROR, "Unable to read %s\n", tarfile);
         return(-1);
     }
     if ( fread(magic, sizeof(magic), 1, fp) &&

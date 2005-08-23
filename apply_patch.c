@@ -36,20 +36,20 @@ static int apply_add_path(struct op_add_path *op, const char *dst)
     struct stat sb;
     int retval;
 
-    log(LOG_VERBOSE, "-> ADD PATH %s\n", op->dst);
+    logme(LOG_VERBOSE, "-> ADD PATH %s\n", op->dst);
 
     /* Create a directory, if it doesn't already exist */
     assemble_path(path, dst, op->dst);
     retval = 0;
     if ( stat(path, &sb) == 0 ) {
         if ( ! S_ISDIR(sb.st_mode) ) {
-            log(LOG_ERROR, "Path exists, and isn't directory: %s\n", path);
+            logme(LOG_ERROR, "Path exists, and isn't directory: %s\n", path);
             retval = -1;
         }
     } else {
         retval = mkdir(path, (op->mode&01777)|0700);
         if ( retval < 0 ) {
-            log(LOG_ERROR, "Unable to make path %s\n", path);
+            logme(LOG_ERROR, "Unable to make path %s\n", path);
         } else {
             op->performed = 1;
         }
@@ -72,13 +72,13 @@ static int apply_add_file(const char *base,
     char data[4096];
     char csum[CHECKSUM_SIZE+1];
 
-    log(LOG_VERBOSE, "-> ADD FILE %s\n", op->dst);
+    logme(LOG_VERBOSE, "-> ADD FILE %s\n", op->dst);
 
     /* Open the source and destination files */
     sprintf(src_path, "%s/%s", base, op->dst);
     src_zfp = gzopen(src_path, "rb");
     if ( src_zfp == NULL ) {
-        log(LOG_ERROR, "Unable to open %s\n", src_path);
+        logme(LOG_ERROR, "Unable to open %s\n", src_path);
         return(-1);
     }
     if ( *op->dst == '/' ) {
@@ -93,7 +93,7 @@ static int apply_add_file(const char *base,
     unlink(dst_path);
     dst_fd = open(dst_path, O_WRONLY|O_CREAT|O_EXCL, (op->mode&01777)|0200);
     if ( dst_fd < 0 ) {
-        log(LOG_ERROR, "Unable to open %s\n", dst_path);
+        logme(LOG_ERROR, "Unable to open %s\n", dst_path);
         gzclose(src_zfp);
         return(-1);
     } else {
@@ -104,24 +104,24 @@ static int apply_add_file(const char *base,
     disk_done *= 1024;
     while ( (len=gzread(src_zfp, data, sizeof(data))) > 0 ) {
         if ( write(dst_fd, data, len) != len ) {
-            log(LOG_ERROR, "Failed writing to %s\n", dst_path);
+            logme(LOG_ERROR, "Failed writing to %s\n", dst_path);
             return(-1);
         }
         disk_done += len;
-        log(LOG_NORMAL, " %0.0f%%%c",
+        logme(LOG_NORMAL, " %0.0f%%%c",
             ((((float)disk_done)/1024.0)/disk_used)*100.0,
             get_logging() <= LOG_VERBOSE ? '\n' : '\r');
     }
     gzclose(src_zfp);
     if ( close(dst_fd) < 0 ) {
-        log(LOG_ERROR, "Failed writing to %s\n", dst_path);
+        logme(LOG_ERROR, "Failed writing to %s\n", dst_path);
         return(-1);
     }
 
     /* Verify the checksum */
     md5_compute(dst_path, csum, 1);
     if ( strcmp(op->sum, csum) != 0 ) {
-        log(LOG_ERROR, "Failed checksum: %s\n", dst_path);
+        logme(LOG_ERROR, "Failed checksum: %s\n", dst_path);
         return(-1);
     }
     op->performed = 1;
@@ -135,7 +135,7 @@ static int apply_symlink_file(const char *base,
     char path[PATH_MAX];
     int retval;
 
-    log(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", op->dst, op->link);
+    logme(LOG_VERBOSE, "-> SYMLINK FILE %s -> %s\n", op->dst, op->link);
 
     /* Symlink a file, easy */
     assemble_path(path, dst, op->dst);
@@ -145,7 +145,7 @@ static int apply_symlink_file(const char *base,
     unlink(path);
     retval = symlink(op->link, path);
     if ( retval < 0 ) {
-        log(LOG_ERROR, "Unable to create symlink %s\n", path);
+        logme(LOG_ERROR, "Unable to create symlink %s\n", path);
     } else {
         op->performed = 1;
     }
@@ -162,7 +162,7 @@ static int apply_patch_file(const char *base,
     struct delta_option *delta;
     char csum[CHECKSUM_SIZE+1];
 
-    log(LOG_VERBOSE, "-> PATCH FILE %s\n", op->dst);
+    logme(LOG_VERBOSE, "-> PATCH FILE %s\n", op->dst);
 
     /* Make sure the destination file exists */
     if ( *op->dst == '/' ) {
@@ -174,7 +174,7 @@ static int apply_patch_file(const char *base,
         if ( op->optional )  {
             return(0);
         }
-        log(LOG_ERROR, "Can't find %s\n", dst_path);
+        logme(LOG_ERROR, "Can't find %s\n", dst_path);
         return(-1);
     }
     md5_compute(dst_path, csum, 1);
@@ -185,24 +185,32 @@ static int apply_patch_file(const char *base,
             /* Whew!  Found it! */
             break;
         }
+        if ( strcmp(delta->newsum, csum) == 0 ) {
+            /* Patch should already be applied previously */
+            logme(LOG_WARNING, "Current patch seems already applied to %s. Skipping.\n", dst_path);
+            return(0);
+        }
     }
     if ( ! delta ) {
         if ( op->optional )  {
+            logme(LOG_WARNING, "No matching delta for %s\n", dst_path);
+            logme(LOG_WARNING, "Patch for %s is marked optional, skipping.\n", dst_path);
             return(0);
+        } else {
+            logme(LOG_ERROR, "No matching delta for %s\n", dst_path);
+            return(-1);
         }
-        log(LOG_ERROR, "No matching delta for %s\n", dst_path);
-        return(-1);
     }
 
     /* Apply the given delta */
     sprintf(src_path, "%s/%s", base, delta->src);
     if ( stat(src_path, &sb) < 0 ) {
-        log(LOG_ERROR, "Can't find %s\n", src_path);
+        logme(LOG_ERROR, "Can't find %s\n", src_path);
         return(-1);
     }
     sprintf(out_path, "%s.new", dst_path);
     if ( loki_xpatch(src_path, dst_path, out_path) < 0 ) {
-        log(LOG_ERROR, "Failed patch delta on %s\n", dst_path);
+        logme(LOG_ERROR, "Failed patch delta on %s\n", dst_path);
         return(-1);
     }
     chmod(out_path, (op->mode&01777)|0200);
@@ -210,9 +218,10 @@ static int apply_patch_file(const char *base,
     /* Verify the checksum */
     md5_compute(out_path, csum, 1);
     if ( strcmp(delta->newsum, csum) != 0 ) {
-        log(LOG_ERROR, "Failed checksum: %s\n", dst_path);
+        logme(LOG_ERROR, "Failed checksum: %s\n", dst_path);
         return(-1);
     }
+    logme(LOG_NORMAL, "Patch successful for %s\n", dst_path);
     op->performed = 1;
     delta->installed = 1;
 
@@ -235,7 +244,7 @@ static int rename_add_file(struct op_add_file *op, const char *dst)
     }
     retval = rename(o_path, n_path);
     if ( retval < 0 ) {
-        log(LOG_ERROR, "Unable to rename file: %s -> %s\n", o_path, n_path);
+        logme(LOG_ERROR, "Unable to rename file: %s -> %s\n", o_path, n_path);
     }
     return(retval);
 }
@@ -256,7 +265,7 @@ static int rename_patch_file(struct op_patch_file *op, const char *dst)
     }
     retval = rename(o_path, n_path);
     if ( retval < 0 ) {
-        log(LOG_ERROR, "Unable to rename file: %s -> %s\n", o_path, n_path);
+        logme(LOG_ERROR, "Unable to rename file: %s -> %s\n", o_path, n_path);
     }
     return(retval);
 }
@@ -290,14 +299,14 @@ static int apply_del_file(struct op_del_file *op, const char *dst,
     char path[PATH_MAX];
     int retval;
 
-    log(LOG_VERBOSE, "-> DEL FILE %s\n", op->dst);
+    logme(LOG_VERBOSE, "-> DEL FILE %s\n", op->dst);
 
     /* Remove a file, easy */
     assemble_path(path, dst, op->dst);
     retval = unlink(path);
     if ( retval < 0 ) {
 #if 0 /* No worries */
-        log(LOG_WARNING, "Unable to remove %s\n", path);
+        logme(LOG_WARNING, "Unable to remove %s\n", path);
 #endif
     } else {
         add_removed_path(path, dst, paths);
@@ -318,7 +327,7 @@ static int remove_directory(const char *path,
     dir = opendir(path);
     if ( ! dir ) {
 #if 0 /* No worries */
-        log(LOG_ERROR, "Unable to list %s\n", path);
+        logme(LOG_ERROR, "Unable to list %s\n", path);
 #endif
         return(-1);
     }
@@ -335,7 +344,7 @@ static int remove_directory(const char *path,
         /* Remove the child path */
         sprintf(child_path, "%s/%s", path, entry->d_name);
         if ( stat(child_path, &sb) < 0 ) {
-            log(LOG_ERROR, "Unable to stat %s\n", child_path);
+            logme(LOG_ERROR, "Unable to stat %s\n", child_path);
             total -= 1;
             continue;
         }
@@ -344,7 +353,7 @@ static int remove_directory(const char *path,
         } else {
             retval = unlink(child_path);
             if ( retval < 0 ) {
-                log(LOG_ERROR, "Unable to remove %s\n", child_path);
+                logme(LOG_ERROR, "Unable to remove %s\n", child_path);
                 total += retval;
             } else {
                 add_removed_path(child_path, prefix, paths);
@@ -356,7 +365,7 @@ static int remove_directory(const char *path,
     /* Finally remove the directory and return */
     retval = rmdir(path);
     if ( retval < 0 ) {
-        log(LOG_ERROR, "Unable to remove %s\n", path);
+        logme(LOG_ERROR, "Unable to remove %s\n", path);
         total += retval;
     } else {
         add_removed_path(path, prefix, paths);
@@ -370,7 +379,7 @@ static int apply_del_path(struct op_del_path *op, const char *dst,
     /* Recursively remove a directory */
     char path[PATH_MAX];
 
-    log(LOG_VERBOSE, "-> DEL PATH %s\n", op->dst);
+    logme(LOG_VERBOSE, "-> DEL PATH %s\n", op->dst);
 
     /* Remove a directory, easy */
     assemble_path(path, dst, op->dst);
@@ -387,7 +396,7 @@ static int chmod_directory(const char *path)
 
     /* Make sure that we can read the existing directory mode */
     if ( stat(path, &sb) < 0 ) {
-        log(LOG_DEBUG, "Unable to stat %s\n", path);
+        logme(LOG_DEBUG, "Unable to stat %s\n", path);
         return(-1);
     }
 
@@ -405,7 +414,7 @@ static int chmod_directory(const char *path)
     /* Go recursive... */
     dir = opendir(path);
     if ( ! dir ) {
-        log(LOG_DEBUG, "Unable to list %s\n", path);
+        logme(LOG_DEBUG, "Unable to list %s\n", path);
         return(-1);
     }
 
@@ -436,7 +445,7 @@ int apply_patch(loki_patch *patch, const char *dst)
     /* First stage, check ownership and disk space requirements */
     chmod_directory(dst);
     if ( access(dst, W_OK) < 0 ) {
-        log(LOG_ERROR, "Unable to write to %s\n", dst);
+        logme(LOG_ERROR, "Unable to write to %s\n", dst);
         return(-1);
     }
 
@@ -455,12 +464,12 @@ int apply_patch(loki_patch *patch, const char *dst)
     disk_free = available_space(dst);
     if ( disk_used > disk_free ) {
         if ( unsafe < 2 ) {
-            log(LOG_ERROR,
+            logme(LOG_ERROR,
             "Not enough diskspace available, %uMB needed, %uMB free\n",
                     (disk_used+1023)/1024, disk_free/1024);
             return(-1);
         } else {
-            log(LOG_WARNING,
+            logme(LOG_WARNING,
             "Not enough diskspace available, %uMB needed, %uMB free\n",
                     (disk_used+1023)/1024, disk_free/1024);
         }
@@ -499,13 +508,13 @@ int apply_patch(loki_patch *patch, const char *dst)
     }
     if ( patch->prepatch ) {
         if ( system(patch->prepatch) != 0 ) {
-            log(LOG_ERROR, "Prepatch script returned non-zero status - Aborting\n");
+            logme(LOG_ERROR, "Prepatch script returned non-zero status - Aborting\n");
             return(-1);
         }
     }
 
     /* Fire it up! */
-    log(LOG_NORMAL, " 0%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
+    logme(LOG_NORMAL, " 0%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
 
     /* Third stage, apply deltas, create new paths, copy new files */
     if ( unsafe ) {
@@ -535,7 +544,7 @@ int apply_patch(loki_patch *patch, const char *dst)
             }
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
-                log(LOG_NORMAL," %0.0f%%%c",
+                logme(LOG_NORMAL," %0.0f%%%c",
                     ((float)disk_done/disk_used)*100.0,
                     get_logging() <= LOG_VERBOSE ? '\n' : '\r');
             }
@@ -571,7 +580,7 @@ int apply_patch(loki_patch *patch, const char *dst)
             }
             disk_done += (op->size + 1023)/1024;
             if ( disk_done ) {
-                log(LOG_NORMAL," %0.0f%%%c",
+                logme(LOG_NORMAL," %0.0f%%%c",
                     ((float)disk_done/disk_used)*100.0,
                     get_logging() <= LOG_VERBOSE ? '\n' : '\r');
             }
@@ -638,12 +647,12 @@ int apply_patch(loki_patch *patch, const char *dst)
     /* Final stage, run post-patch script */
     if ( patch->postpatch ) {
         if ( system(patch->postpatch) != 0 ) {
-            log(LOG_WARNING, "Postpatch script returned non-zero status\n");
+            logme(LOG_WARNING, "Postpatch script returned non-zero status\n");
         }
     }
 
     /* Yay!  The patch succeeded! */
-    log(LOG_NORMAL, " 100%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
+    logme(LOG_NORMAL, " 100%%%c", get_logging() <= LOG_VERBOSE ? '\n' : '\r');
 
     return(0);
 }
