@@ -1,0 +1,19 @@
+
+loki_patch uses a local (and patched) version of
+xdelta 1.1.3 version included here. Here are the
+steps to compile loki_patch:
+
+1. Extract the xdelta tarball:
+
+  # tar xvfz libs/xdelta-1.1.3-patched.tar.gz
+
+2. Compile xdelta  as usual (./configure and make)
+
+3. Configure and compile loki_setupdb (which should
+   normally reside in ../loki_setupdb !)
+
+3. Now you're ready to compile loki_setup:
+
+   # sh autogen.sh
+   # ./configure
+   # make
