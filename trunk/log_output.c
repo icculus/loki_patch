@@ -16,7 +16,7 @@ int get_logging(void)
     return(log_level);
 }
 
-void log(int level, const char *fmt, ...)
+void logme(int level, const char *fmt, ...)
 {
     if ( level >= log_level ) {
         va_list ap;
@@ -25,6 +25,9 @@ void log(int level, const char *fmt, ...)
         switch (level) {
             case LOG_ERROR:
                 fprintf(stdout, "ERROR: ");
+                break;
+            case LOG_NORMAL:
+                fprintf(stdout, "GOOD: ");
                 break;
             case LOG_WARNING:
                 fprintf(stdout, "WARNING: ");

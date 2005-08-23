@@ -10,13 +10,13 @@ PACKAGE = loki_patch-$(VERSION)
 SETUPDB = ../loki_setupdb
 CFLAGS = -g -Wall
 CFLAGS += -I$(SETUPDB)
-CFLAGS += $(shell xdelta-config --cflags) $(shell xml-config --cflags)
+CFLAGS += $(shell glib-config --cflags) $(shell xml-config --cflags)
 CFLAGS += -DVERSION=\"$(VERSION)\"
 LFLAGS += -L$(SETUPDB)/$(ARCH) -lsetupdb
-LFLAGS += $(shell xdelta-config --libs) $(shell xml-config --libs) -lz -static
+LFLAGS += $(shell glib-config --libs) $(shell xml-config --libs) -lz -static
 
 SHARED_OBJS = load_patch.o size_patch.o print_patch.o loki_xdelta.o \
-              mkdirhier.o log_output.o
+	      libxdelta.a libedsio.a mkdirhier.o log_output.o
 
 MAKE_PATCH_OBJS = make_patch.o tree_patch.o save_patch.o
 
@@ -25,6 +25,12 @@ LOKI_PATCH_OBJS = loki_patch.o apply_patch.o registry.o
 ALL_OBJS = $(SHARED_OBJS) $(MAKE_PATCH_OBJS) $(LOKI_PATCH_OBJS)
 
 all: make_patch loki_patch
+
+libxdelta.a:
+	cp ../xdelta-1.1.3/.libs/libxdelta.a .
+
+libedsio.a:
+	cp ../xdelta-1.1.3/libedsio/.libs/libedsio.a .
 
 make_patch: $(MAKE_PATCH_OBJS) $(SHARED_OBJS)
 	$(CC) -o $@ $^ $(LFLAGS)
