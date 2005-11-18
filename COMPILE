@@ -1,7 +1,10 @@
 
 loki_patch uses a local (and patched) version of
-xdelta 1.1.3 version included here. Here are the
-steps to compile loki_patch:
+xdelta 1.1.3, it is included here. Additionally,
+you need libxml (latest is 1.8.17, not libxml2),
+and glib-1.2 (latest is 1.2.10).
+
+Here are the steps to compile loki_patch:
 
 1. Extract the xdelta tarball:
 
